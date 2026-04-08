@@ -1,0 +1,37 @@
+# Virtual environment - never commit this (it's ~1GB and machine-specific)
+venv/
+
+# PyTorch Lightning training logs - generated automatically, not needed in repo
+lightning_logs/
+
+# Streamlit secrets - contains your API key, never commit
+.streamlit/secrets.toml
+
+# MLflow experiment data - large, regeneratable by running train.py
+mlruns/
+
+# Trained model checkpoints - large, regeneratable
+forecasting/saved_model/
+
+# ChromaDB vector store - regeneratable by running rag/ingest.py
+rag/chroma_db/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variable files
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
