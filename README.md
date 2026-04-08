@@ -568,22 +568,6 @@ To run a drift check: open the MLOps Monitor tab → click **Run Drift Check**.
 
 ---
 
-## Deployment
-
-The app deploys for free on Streamlit Community Cloud. No API key is needed in the deployment secrets — users bring their own.
-
-1. Push this repo to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your GitHub account and select this repo
-4. Set `app.py` as the entry point
-5. Click Deploy — you get a public URL
-
-Users who open the app will see the API key input in the sidebar and can paste their own key to use the AI Assistant. The Inventory Dashboard and Demand Forecast tabs work without any key at all.
-
-Note: Streamlit Cloud free tier has no GPU, so the app uses the statistical forecast baseline for the Demand Forecast tab. The RAG pipeline and agent work fully in the cloud.
-
----
-
 ## Skills Demonstrated
 
 | Skill Area | Implementation |
