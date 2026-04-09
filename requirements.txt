@@ -17,5 +17,5 @@ numpy==1.26.4
 anthropic==0.89.0
 openai==2.30.0
 plotly==6.6.0
-gradio==5.34.2
 python-dotenv==1.2.2
+# gradio is intentionally omitted — HF Spaces installs it automatically
