@@ -1,0 +1,559 @@
+"""
+gradio_app.py
+-------------
+Gradio version of the Supply Chain Demand Agent UI.
+Deployed on Hugging Face Spaces — no Streamlit, no chromadb, no torch required.
+
+Tabs:
+  1. AI Assistant   — chat with the multi-provider agent
+  2. Inventory Dashboard — risk overview and category drill-down
+  3. Demand Forecast     — 30-day forecast chart per part
+
+MLOps Monitor tab is hidden on the cloud (requires local MLflow).
+
+Run locally:
+  pip install gradio
+  python gradio_app.py
+
+How to deploy on Hugging Face Spaces:
+  1. Create a new Space (Gradio SDK)
+  2. Push this repo to the Space
+  3. Add ANTHROPIC_API_KEY / OPENAI_API_KEY to Space Secrets
+  4. HF Spaces reads requirements-cloud.txt automatically if named
+     requirements.txt in the repo root — see notes in that file.
+"""
+
+import os
+import warnings
+
+warnings.filterwarnings("ignore")
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import gradio as gr
+
+from agent.agent import (
+    run_agent_with_steps,
+    get_inventory_status,
+    PROVIDERS,
+    DEFAULT_PROVIDER,
+    DEFAULT_MODEL,
+    get_demand_forecast,
+)
+
+# ---------------------------------------------------------------------------
+# Data helpers
+# ---------------------------------------------------------------------------
+DATA_PATH = "data/supply_chain_data.csv"
+_df_cache = None
+_summary_cache = None
+
+
+def _load_data() -> pd.DataFrame:
+    global _df_cache
+    if _df_cache is None:
+        _df_cache = pd.read_csv(DATA_PATH, parse_dates=["date"])
+    return _df_cache
+
+
+def _compute_summary() -> pd.DataFrame:
+    global _summary_cache
+    if _summary_cache is not None:
+        return _summary_cache
+
+    df = _load_data()
+    latest_date = df["date"].max()
+    latest = df[df["date"] == latest_date].copy()
+
+    last_30 = df[df["date"] >= latest_date - pd.Timedelta(days=30)]
+    avg_demand = (
+        last_30.groupby("part_id")["demand"]
+        .mean()
+        .rename("avg_daily_demand")
+        .reset_index()
+    )
+    latest = latest.merge(avg_demand, on="part_id", how="left")
+    latest["days_of_supply"] = (
+        latest["inventory"] / latest["avg_daily_demand"].clip(lower=0.1)
+    ).round(1)
+
+    def risk_level(row):
+        if row["days_of_supply"] < row["lead_time_days"]:
+            return "CRITICAL"
+        elif row["days_of_supply"] < 2 * row["lead_time_days"]:
+            return "WARNING"
+        return "OK"
+
+    latest["risk"] = latest.apply(risk_level, axis=1)
+    _summary_cache = latest.sort_values("days_of_supply")
+    return _summary_cache
+
+
+# ---------------------------------------------------------------------------
+# TAB 1 — AI Assistant
+# ---------------------------------------------------------------------------
+def chat(message, history, provider, model, api_key):
+    """Gradio chat function — yields streamed response with tool steps."""
+    if not api_key:
+        yield history + [[message, "Please enter your API key in the sidebar."]]
+        return
+
+    os.environ[PROVIDERS[provider]["env_key"]] = api_key
+
+    steps_text = ""
+    answer = ""
+    tool_icons = {
+        "get_inventory_status": "📦",
+        "get_demand_forecast": "📈",
+        "search_knowledge_base": "🔍",
+    }
+
+    try:
+        for step in run_agent_with_steps(
+            message,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+        ):
+            if step["type"] == "tool_start":
+                icon = tool_icons.get(step["tool"], "🔧")
+                steps_text += f"\n{icon} *{step['label']}...*"
+                yield history + [[message, steps_text.strip()]]
+
+            elif step["type"] == "tool_result":
+                if steps_text:
+                    steps_text = steps_text.rstrip("...*") + "* ✓\n"
+                    steps_text += f"> {step['preview']}\n"
+                yield history + [[message, steps_text.strip()]]
+
+            elif step["type"] == "answer":
+                answer = step["text"]
+                separator = "\n\n---\n\n" if steps_text else ""
+                yield history + [[message, steps_text.strip() + separator + answer]]
+
+            elif step["type"] == "error":
+                yield history + [[message, f"Error: {step['text']}"]]
+
+    except Exception as e:
+        yield history + [[message, f"An error occurred: {str(e)}"]]
+
+
+# ---------------------------------------------------------------------------
+# TAB 2 — Inventory Dashboard
+# ---------------------------------------------------------------------------
+def build_dashboard(selected_category):
+    summary = _compute_summary()
+    color_map = {"CRITICAL": "#e74c3c", "WARNING": "#f39c12", "OK": "#27ae60"}
+
+    cat_data = summary[summary["category"] == selected_category].sort_values(
+        "days_of_supply"
+    )
+    cat_avg_lead = int(cat_data["lead_time_days"].mean())
+
+    # Chart 1 — Days of supply
+    fig1 = px.bar(
+        cat_data,
+        x="part_id",
+        y="days_of_supply",
+        color="risk",
+        color_discrete_map=color_map,
+        hover_data=["supplier", "region", "inventory", "lead_time_days"],
+        labels={"days_of_supply": "Days of Supply", "part_id": ""},
+        title=f"Days of Supply — {selected_category}",
+        text="days_of_supply",
+    )
+    fig1.add_hline(
+        y=cat_avg_lead,
+        line_dash="dash",
+        line_color="rgba(255,255,255,0.45)",
+        annotation_text=f"Avg lead time ({cat_avg_lead}d)",
+    )
+    fig1.update_traces(texttemplate="%{text:.0f}d", textposition="outside")
+    fig1.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#ffffff",
+        height=380,
+        showlegend=False,
+    )
+
+    # Chart 2 — Inventory vs daily demand
+    cat_melted = cat_data[["part_id", "inventory", "avg_daily_demand"]].copy()
+    cat_melted["inventory"] = cat_melted["inventory"].astype(int)
+    cat_melted["avg_daily_demand"] = cat_melted["avg_daily_demand"].round(1)
+
+    fig2 = px.bar(
+        cat_melted,
+        x="part_id",
+        y=["inventory", "avg_daily_demand"],
+        barmode="group",
+        labels={"value": "Units", "part_id": "", "variable": ""},
+        title=f"Inventory vs Daily Demand — {selected_category}",
+        color_discrete_map={
+            "inventory": "#3498db",
+            "avg_daily_demand": "#e67e22",
+        },
+        text_auto=True,
+    )
+    fig2.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#ffffff",
+        height=380,
+    )
+
+    # Summary table
+    n_critical = int((cat_data["risk"] == "CRITICAL").sum())
+    n_warning = int((cat_data["risk"] == "WARNING").sum())
+    n_ok = int((cat_data["risk"] == "OK").sum())
+
+    table_df = summary[
+        [
+            "part_id",
+            "category",
+            "supplier",
+            "region",
+            "inventory",
+            "avg_daily_demand",
+            "days_of_supply",
+            "lead_time_days",
+            "price_usd",
+            "risk",
+        ]
+    ].copy()
+    table_df["inventory"] = table_df["inventory"].astype(int)
+    table_df["lead_time_days"] = table_df["lead_time_days"].astype(int)
+    table_df["avg_daily_demand"] = table_df["avg_daily_demand"].round(1)
+    table_df["days_of_supply"] = table_df["days_of_supply"].round(1)
+    table_df["price_usd"] = table_df["price_usd"].round(2)
+
+    kpis = f"""
+**Total Parts:** {len(summary)} &nbsp;&nbsp;|&nbsp;&nbsp;
+🔴 **Critical:** {(summary["risk"] == "CRITICAL").sum()} &nbsp;&nbsp;|&nbsp;&nbsp;
+🟡 **Warning:** {(summary["risk"] == "WARNING").sum()} &nbsp;&nbsp;|&nbsp;&nbsp;
+🟢 **OK:** {(summary["risk"] == "OK").sum()}
+
+**{selected_category}:** {len(cat_data)} parts &nbsp;·&nbsp;
+🔴 {n_critical} critical &nbsp;🟡 {n_warning} warning &nbsp;🟢 {n_ok} OK &nbsp;·&nbsp;
+Avg lead time: {cat_avg_lead} days
+"""
+    return kpis, fig1, fig2, table_df
+
+
+# ---------------------------------------------------------------------------
+# TAB 3 — Demand Forecast
+# ---------------------------------------------------------------------------
+def build_forecast(part_id):
+    df = _load_data()
+    part_data = df[df["part_id"] == part_id]
+    part_meta = part_data.iloc[0]
+
+    lookback = min(60, len(part_data))
+    recent_demand = part_data["demand"].tail(lookback).values
+    avg = float(recent_demand.mean())
+    std = float(recent_demand.std())
+    lead = int(part_meta["lead_time_days"])
+    horizon = 30
+    trend = np.linspace(0, avg * 0.05, horizon)
+    p50 = np.maximum(avg + trend, 0)
+    p10 = np.maximum(p50 - 1.65 * std, 0)
+    p90 = p50 + 1.65 * std
+
+    forecast_dates = pd.date_range(
+        start=df["date"].max() + pd.Timedelta(days=1), periods=horizon
+    )
+
+    # History chart
+    history_days = min(90, len(part_data))
+    recent = part_data.tail(history_days)
+    fig_hist = px.line(
+        recent,
+        x="date",
+        y="demand",
+        title=f"Last {history_days} Days — {part_id}",
+        labels={"demand": "Daily Demand (units)", "date": "Date"},
+    )
+    fig_hist.update_traces(line_color="#3498db")
+    fig_hist.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#ffffff",
+        height=300,
+    )
+
+    # Forecast chart
+    fig_fc = go.Figure()
+    fig_fc.add_trace(
+        go.Scatter(
+            x=list(forecast_dates) + list(forecast_dates[::-1]),
+            y=list(p90) + list(p10[::-1]),
+            fill="toself",
+            fillcolor="rgba(148,163,184,0.18)",
+            line=dict(color="rgba(0,0,0,0)"),
+            name="Uncertainty (p10–p90)",
+            hoverinfo="skip",
+        )
+    )
+    fig_fc.add_trace(
+        go.Scatter(
+            x=forecast_dates,
+            y=p90,
+            line=dict(color="#f87171", dash="dash", width=2),
+            name="p90 — order qty (90% SL)",
+        )
+    )
+    fig_fc.add_trace(
+        go.Scatter(
+            x=forecast_dates,
+            y=p50,
+            line=dict(color="#e2e8f0", width=3),
+            name="p50 — median forecast",
+        )
+    )
+    fig_fc.add_trace(
+        go.Scatter(
+            x=forecast_dates,
+            y=p10,
+            line=dict(color="#6ee7b7", dash="dash", width=2),
+            name="p10 — lower bound",
+        )
+    )
+    fig_fc.update_layout(
+        title=f"30-Day Demand Forecast — {part_id}",
+        xaxis_title="Date",
+        yaxis_title="Demand (units/day)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0f172a",
+        font_color="#e2e8f0",
+        xaxis=dict(gridcolor="#1e293b"),
+        yaxis=dict(gridcolor="#1e293b"),
+        legend=dict(orientation="h", y=-0.3, x=0.5, xanchor="center"),
+        height=400,
+    )
+
+    meta_md = f"""
+**Category:** {part_meta["category"]} &nbsp;|&nbsp;
+**Supplier:** {part_meta["supplier"]} &nbsp;|&nbsp;
+**Region:** {part_meta["region"]} &nbsp;|&nbsp;
+**Lead Time:** {lead} days &nbsp;|&nbsp;
+**Unit Price:** ${float(part_meta["price_usd"]):,.2f}
+
+| Metric | Value |
+|---|---|
+| Daily demand (median) | {avg:.1f} units/day |
+| {horizon}-day total (p50) | {int(p50.sum()):,} units |
+| Lower bound (p10) | {int(p10.sum()):,} units |
+| Order qty for 90% SL (p90) | {int(p90.sum()):,} units |
+"""
+    return fig_hist, fig_fc, meta_md
+
+
+# ---------------------------------------------------------------------------
+# Build Gradio UI
+# ---------------------------------------------------------------------------
+def build_ui():
+    summary = _compute_summary()
+    df = _load_data()
+    part_ids = sorted(df["part_id"].unique())
+    categories = sorted(summary["category"].unique())
+
+    provider_names = list(PROVIDERS.keys())
+    default_models = {p: PROVIDERS[p]["models"][0] for p in provider_names}
+
+    with gr.Blocks(title="Supply Chain Demand Agent", theme=gr.themes.Soft()) as demo:
+        gr.Markdown(
+            "# 📦 Supply Chain Demand Agent\n"
+            "An agentic AI system for supply chain demand forecasting. "
+            "Uses RAG to retrieve supplier policies and a statistical forecaster "
+            "for 30-day demand predictions."
+        )
+
+        # ── Shared API key row ──
+        with gr.Row():
+            provider_dd = gr.Dropdown(
+                choices=provider_names,
+                value=DEFAULT_PROVIDER,
+                label="LLM Provider",
+                scale=1,
+            )
+            model_dd = gr.Dropdown(
+                choices=PROVIDERS[DEFAULT_PROVIDER]["models"],
+                value=DEFAULT_MODEL,
+                label="Model",
+                scale=1,
+            )
+            api_key_box = gr.Textbox(
+                label="API Key (held in memory only — never stored)",
+                placeholder="Paste your API key here",
+                type="password",
+                scale=3,
+                value=os.environ.get("ANTHROPIC_API_KEY", ""),
+            )
+
+        def update_models(provider):
+            models = PROVIDERS[provider]["models"]
+            return gr.Dropdown(choices=models, value=models[0])
+
+        provider_dd.change(update_models, inputs=provider_dd, outputs=model_dd)
+
+        # ── Tabs ──
+        with gr.Tabs():
+            # TAB 1 — AI Assistant
+            with gr.Tab("🤖 AI Assistant"):
+                gr.Markdown(
+                    "Ask questions about inventory levels, demand forecasts, "
+                    "supplier policies, or which parts need attention. "
+                    "The agent decides which tools to call and shows its reasoning."
+                )
+                chatbot = gr.Chatbot(height=480, label="Supply Chain Agent")
+                with gr.Row():
+                    msg_box = gr.Textbox(
+                        placeholder="Ask the supply chain agent...",
+                        label="Your question",
+                        scale=5,
+                    )
+                    send_btn = gr.Button("Send", variant="primary", scale=1)
+
+                with gr.Row():
+                    gr.Button("Which parts are at risk?").click(
+                        fn=lambda: (
+                            "Which parts are most at risk of running out soon? What immediate actions should we take?"
+                        ),
+                        outputs=msg_box,
+                    )
+                    gr.Button("SupplierA reliability?").click(
+                        fn=lambda: (
+                            "What are the known reliability issues with SupplierA?"
+                        ),
+                        outputs=msg_box,
+                    )
+                    gr.Button("Safety stock formula?").click(
+                        fn=lambda: (
+                            "How should I calculate safety stock? Walk me through the formula."
+                        ),
+                        outputs=msg_box,
+                    )
+
+                clear_btn = gr.Button("Clear conversation", size="sm")
+
+                def submit(message, history, provider, model, api_key):
+                    history = history or []
+                    for updated in chat(message, history, provider, model, api_key):
+                        yield updated, ""
+
+                send_btn.click(
+                    submit,
+                    inputs=[msg_box, chatbot, provider_dd, model_dd, api_key_box],
+                    outputs=[chatbot, msg_box],
+                )
+                msg_box.submit(
+                    submit,
+                    inputs=[msg_box, chatbot, provider_dd, model_dd, api_key_box],
+                    outputs=[chatbot, msg_box],
+                )
+                clear_btn.click(lambda: [], outputs=chatbot)
+
+            # TAB 2 — Inventory Dashboard
+            with gr.Tab("📊 Inventory Dashboard"):
+                gr.Markdown("### Inventory Risk Dashboard")
+                kpi_md = gr.Markdown()
+                category_radio = gr.Radio(
+                    choices=categories,
+                    value=categories[0],
+                    label="Select Category",
+                )
+                supply_chart = gr.Plot(label="Days of Supply")
+                demand_chart = gr.Plot(label="Inventory vs Daily Demand")
+                gr.Markdown("### Full Inventory Table")
+                inv_table = gr.Dataframe(
+                    headers=[
+                        "part_id",
+                        "category",
+                        "supplier",
+                        "region",
+                        "inventory",
+                        "avg_daily_demand",
+                        "days_of_supply",
+                        "lead_time_days",
+                        "price_usd",
+                        "risk",
+                    ],
+                    interactive=False,
+                )
+
+                def refresh_dashboard(cat):
+                    kpis, f1, f2, tbl = build_dashboard(cat)
+                    return kpis, f1, f2, tbl
+
+                category_radio.change(
+                    refresh_dashboard,
+                    inputs=category_radio,
+                    outputs=[kpi_md, supply_chart, demand_chart, inv_table],
+                )
+                # Load on startup
+                demo.load(
+                    refresh_dashboard,
+                    inputs=category_radio,
+                    outputs=[kpi_md, supply_chart, demand_chart, inv_table],
+                )
+
+            # TAB 3 — Demand Forecast
+            with gr.Tab("📈 Demand Forecast"):
+                gr.Markdown(
+                    "### 30-Day Demand Forecast\n"
+                    "Select a part to see its demand forecast. "
+                    "The shaded area shows the uncertainty range (p10–p90). "
+                    "Use the p90 line for safety stock calculations."
+                )
+                part_dd = gr.Dropdown(
+                    choices=part_ids,
+                    value=part_ids[0],
+                    label="Select Part",
+                )
+                meta_md = gr.Markdown()
+                hist_chart = gr.Plot(label="Historical Demand")
+                fc_chart = gr.Plot(label="30-Day Forecast")
+
+                def refresh_forecast(part_id):
+                    h, f, m = build_forecast(part_id)
+                    return h, f, m
+
+                part_dd.change(
+                    refresh_forecast,
+                    inputs=part_dd,
+                    outputs=[hist_chart, fc_chart, meta_md],
+                )
+                demo.load(
+                    refresh_forecast,
+                    inputs=part_dd,
+                    outputs=[hist_chart, fc_chart, meta_md],
+                )
+
+            # MLOps tab — local only
+            with gr.Tab("⚙️ MLOps Monitor"):
+                gr.Markdown(
+                    "### MLOps Monitor\n"
+                    "This tab requires a local MLflow server and is not available "
+                    "in the cloud deployment.\n\n"
+                    "To use it locally:\n"
+                    "```\n"
+                    "pip install -r requirements.txt\n"
+                    "mlflow ui\n"
+                    "streamlit run app.py\n"
+                    "```\n"
+                    "The full MLOps dashboard (model registry, prediction logs, "
+                    "drift detection) is available in the local Streamlit app."
+                )
+
+    return demo
+
+
+if __name__ == "__main__":
+    demo = build_ui()
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)

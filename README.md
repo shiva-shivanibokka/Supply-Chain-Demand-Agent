@@ -54,12 +54,23 @@ Inventory tool     Forecast tool        RAG search tool
 
 ---
 
+## Live Demo
+
+Deployed on Hugging Face Spaces (Gradio):
+[https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent)
+
+The cloud version uses a lightweight statistical forecaster (no PyTorch required) and a keyword-based RAG retriever (no ChromaDB required). The full TFT model and MLOps monitor are available in local deployment only.
+
+---
+
 ## Project Structure
 
 ```
 Supply-Chain-Demand-Agent/
-├── app.py                          ← Streamlit UI (entry point)
-├── requirements.txt
+├── gradio_app.py                   ← Gradio UI — Hugging Face Spaces (cloud entry point)
+├── app.py                          ← Streamlit UI — local only (full stack with MLOps)
+├── requirements.txt                ← Cloud-minimal deps (gradio, pandas, numpy, anthropic, openai, plotly)
+├── requirements-local.txt          ← Full local stack (torch, chromadb, mlflow, streamlit)
 ├── .env                            ← your API key goes here (never committed)
 ├── .gitignore
 ├── .streamlit/
@@ -71,8 +82,10 @@ Supply-Chain-Demand-Agent/
 │   ├── model.py                    ← TFT configuration + dataset builder
 │   └── train.py                    ← training loop + MLflow tracking
 ├── rag/
-│   ├── ingest.py                   ← embeds 10 documents into ChromaDB
-│   └── retriever.py                ← semantic search over the knowledge base
+│   ├── ingest.py                   ← embeds 10 documents into ChromaDB (local)
+│   ├── retriever.py                ← semantic search via ChromaDB (local)
+│   ├── retriever_cloud.py          ← keyword search, no chromadb (cloud)
+│   └── embeddings.npz              ← pre-built embeddings committed to repo (cloud)
 ├── agent/
 │   └── agent.py                    ← multi-provider agent (Anthropic / OpenAI / Groq)
 ├── mlops/
@@ -85,9 +98,19 @@ Supply-Chain-Demand-Agent/
 
 ## Setup
 
+### Option A — Hugging Face Spaces (no local setup needed)
+
+The app is deployed at: [https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent)
+
+Just open the link, paste your API key (Anthropic, OpenAI, or Groq), and use it.
+
+---
+
+### Option B — Local Setup (full stack with TFT model + MLOps)
+
 **1. Clone the repo**
 ```bash
-git clone https://github.com/your-username/Supply-Chain-Demand-Agent.git
+git clone https://github.com/shivani-shivanibokka/Supply-Chain-Demand-Agent.git
 cd Supply-Chain-Demand-Agent
 ```
 
@@ -100,7 +123,7 @@ source venv/bin/activate     # Mac/Linux
 
 **3. Install dependencies**
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 ```
 
 **4. Add your API key**
@@ -141,9 +164,17 @@ mlflow ui
 ```
 
 **Step 5 — Run the app**
+
+Full local stack (Streamlit, with TFT model + MLOps Monitor):
 ```bash
 streamlit run app.py
 # open http://localhost:8501
+```
+
+Or run the Gradio version locally (same cloud version, no torch/mlflow needed):
+```bash
+python gradio_app.py
+# open http://localhost:7860
 ```
 
 ---
@@ -580,5 +611,5 @@ To run a drift check: open the MLOps Monitor tab → click **Run Drift Check**.
 | MLOps — experiment tracking | MLflow logs all hyperparameters, metrics, and model artifacts |
 | MLOps — model versioning | MLflow Model Registry with Staging → Production promotion |
 | MLOps — prediction monitoring | Every forecast logged; drift detection with MAE + calibration score |
-| AI-driven prototypes for stakeholders | Streamlit app with 4 tabs, deployable to Streamlit Cloud for free |
+| AI-driven prototypes for stakeholders | Gradio app deployed on Hugging Face Spaces; local Streamlit app with full MLOps |
 | Data mining, data processing | Pandas pipeline, synthetic multivariate time-series generation |
