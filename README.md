@@ -1,3 +1,16 @@
+---
+title: Supply Chain Demand Agent
+emoji: 📦
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: 5.34.2
+app_file: app.py
+pinned: false
+license: mit
+short_description: Agentic AI for supply chain demand forecasting with RAG
+---
+
 # Supply Chain Demand Agent
 
 An end-to-end agentic AI system for supply chain demand forecasting. Built for capital equipment and semiconductor manufacturing companies managing large inventories of spare parts.
