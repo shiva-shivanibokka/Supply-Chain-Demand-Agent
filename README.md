@@ -6,7 +6,7 @@ The system forecasts 30-day part demand using a Temporal Fusion Transformer, ans
 
 This project was originally built using **Anthropic Claude**. It has since been extended to support multiple LLM providers — users can plug in whichever API key they have, including a **free Groq key** (no credit card required).
 
-> **Bring Your Own Key:** This app never uses a shared API key. You select your provider (Anthropic, OpenAI, or Groq) and paste your own key directly in the sidebar. It is held in session memory only and never stored or shared. See the [LLM Provider](#llm-provider--bring-your-own-key) section for how to get a key.
+> **Bring Your Own Key:** This app never uses a shared API key. You select your provider (Anthropic, OpenAI, or Groq) and paste your own key at the top of the page. It is held in session memory only and never stored or shared. See the [LLM Provider](#llm-provider--bring-your-own-key) section for how to get a key.
 
 ---
 
@@ -30,11 +30,12 @@ User question
   Agent (Claude) — decides which tools to call
       ↓                  ↓                    ↓
 Inventory tool     Forecast tool        RAG search tool
- reads CSV          runs TFT model       searches ChromaDB
+ reads CSV          TFT or statistical   ChromaDB (local)
+                    baseline (cloud)     or keyword search (cloud)
       ↓                  ↓                    ↓
           Claude reads all results, writes final answer
                           ↓
-               Streamlit UI displays it
+          Gradio UI (Hugging Face Spaces) or Streamlit (local)
 ```
 
 ---
@@ -49,7 +50,10 @@ Inventory tool     Forecast tool        RAG search tool
 | RAG embeddings | sentence-transformers (all-MiniLM-L6-v2) |
 | Vector database | ChromaDB |
 | MLOps | MLflow (experiment tracking, model registry, prediction logging, drift detection) |
-| UI | Streamlit + Plotly |
+| UI (cloud) | Gradio + Plotly — deployed on Hugging Face Spaces |
+| UI (local) | Streamlit + Plotly — full stack with MLOps Monitor tab |
+| RAG (cloud) | Keyword search over pre-built embeddings (numpy only) |
+| RAG (local) | ChromaDB + sentence-transformers (all-MiniLM-L6-v2) |
 | Data | Pandas, synthetic supply chain dataset |
 
 ---
@@ -57,7 +61,7 @@ Inventory tool     Forecast tool        RAG search tool
 ## Live Demo
 
 Deployed on Hugging Face Spaces (Gradio):
-[https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent)
+[https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
 
 The cloud version uses a lightweight statistical forecaster (no PyTorch required) and a keyword-based RAG retriever (no ChromaDB required). The full TFT model and MLOps monitor are available in local deployment only.
 
@@ -100,7 +104,7 @@ Supply-Chain-Demand-Agent/
 
 ### Option A — Hugging Face Spaces (no local setup needed)
 
-The app is deployed at: [https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shivani-bokka/Supply-Chain-Demand-Agent)
+The app is deployed at: [https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
 
 Just open the link, paste your API key (Anthropic, OpenAI, or Groq), and use it.
 
@@ -181,7 +185,9 @@ python gradio_app.py
 
 ## What the App Shows
 
-The app has four tabs. None of the content is hardcoded — everything is derived live from the dataset and MLflow logs.
+The app has four tabs. None of the content is hardcoded — everything is derived live from the dataset.
+
+The first three tabs (AI Assistant, Inventory Dashboard, Demand Forecast) are available in both the cloud Gradio app and the local Streamlit app. The MLOps Monitor tab is local-only — it requires a running MLflow server.
 
 ---
 
@@ -189,8 +195,8 @@ The app has four tabs. None of the content is hardcoded — everything is derive
 
 A chat interface powered by the Claude agent.
 
-- **Sidebar key input** — paste your Anthropic API key to activate the assistant. The key is held in session memory only and never stored.
-- **Suggested questions** — three quick-start buttons built dynamically from the actual suppliers and categories in the dataset.
+- **API key input** — select your provider and paste your key at the top of the page. The key is held in session memory only and never stored.
+- **Suggested questions** — three quick-start buttons that pre-fill common questions.
 - **Agent reasoning steps** — as the agent works, you see each step live: which tool it called, and a preview of what it found, before the final answer appears.
 - **Chat history** — conversation persists across questions within the same session. A "Clear conversation" button resets it.
 
@@ -253,6 +259,8 @@ Shows the selected part's lead time and the exact p90 order quantity with a plai
 ---
 
 ### Tab 4 — MLOps Monitor
+
+> **Local deployment only.** This tab requires a running MLflow server and is not available in the Hugging Face Spaces deployment. Run `streamlit run app.py` locally with the full stack (`requirements-local.txt`) to access it.
 
 Tracks model health in production across three sections.
 
@@ -395,17 +403,23 @@ The 10 documents in the knowledge base cover: reorder policies, supplier profile
 
 ---
 
-### `rag/retriever.py`
+### `rag/retriever.py` (local) and `rag/retriever_cloud.py` (cloud)
 
-The search half of RAG. Given a user's question, finds the most relevant documents from ChromaDB.
+The search half of RAG. Given a user's question, finds the most relevant documents from the knowledge base. Two implementations with identical public APIs — `agent.py` selects between them automatically at import time.
 
-**The process:**
+**`retriever.py` — local (ChromaDB + sentence-transformers):**
 1. Take the question as plain text
 2. Convert it to a vector using the same embedding model used during ingest
-3. Ask ChromaDB: find the stored vectors closest to this one
-4. Return the top 3 matches with similarity scores
+3. Ask ChromaDB: find the stored vectors closest to this one using cosine similarity
+4. Return the top 3 matches — results below 0.3 similarity are filtered out
 
-Similarity is measured with cosine similarity — 1.0 means identical meaning, 0.0 means completely unrelated. Results below 0.3 similarity are filtered out as not relevant enough.
+**`retriever_cloud.py` — cloud (numpy only, no heavy dependencies):**
+1. Take the question as plain text
+2. Tokenize and filter stopwords
+3. Score each document by keyword overlap, weighted by term frequency
+4. Return the top 3 matches from `rag/embeddings.npz` (pre-built, committed to repo)
+
+The cloud retriever is less semantically precise than the ChromaDB version, but requires only numpy and installs in seconds. For the 10-document knowledge base in this project the quality difference is minimal in practice.
 
 The retrieved document texts become the "context" that gets passed to Claude alongside the user's question.
 
@@ -478,17 +492,31 @@ All computed drift metrics are logged back to MLflow so they can be trended over
 
 ---
 
+### `gradio_app.py`
+
+The Gradio web application — the cloud entry point, deployed on Hugging Face Spaces. Three functional tabs:
+
+**AI Assistant** — a chat interface with streaming tool-step output. Provider, model, and API key are selected from a shared row at the top of the page. Three quick-start buttons pre-fill common questions.
+
+**Inventory Dashboard** — KPI summary, a category radio selector, two Plotly charts (days of supply + inventory vs demand), and the full inventory table.
+
+**Demand Forecast** — part dropdown, historical demand chart, 30-day forecast chart with p10/p50/p90 quantile bounds, and a metadata summary table.
+
+Uses only the packages in `requirements.txt` (no torch, no chromadb, no mlflow). The statistical forecaster and keyword RAG retriever handle everything on the free CPU tier.
+
+---
+
 ### `app.py`
 
-The Streamlit web application. Four tabs:
+The Streamlit web application — local only, requires the full stack from `requirements-local.txt`. Adds a fourth tab not available in the cloud:
 
-**AI Assistant** — a chat interface. The agent uses all three tools and shows its reasoning steps live as it works. Provider and model are selectable from the sidebar.
+**AI Assistant** — same as Gradio, plus dynamic quick-start buttons built from actual supplier and category names in the dataset.
 
-**Inventory Dashboard** — KPI metrics, a category drill-down with two charts (days of supply + inventory vs demand), and a full inventory table.
+**Inventory Dashboard** — same as Gradio.
 
-**Demand Forecast** — pick any part to see its demand history and a 30-day forecast with p10/p50/p90 lines, forecast metric cards, a plain-English chart explanation, and a lead time recommendation.
+**Demand Forecast** — same as Gradio, plus part metadata panel and lead time recommendation info box.
 
-**MLOps Monitor** — model registry with version promotion, prediction audit log, and drift detection with MAE and calibration metrics.
+**MLOps Monitor** — model registry with version promotion, prediction audit log, and drift detection with MAE and calibration metrics. Requires a running MLflow server (`mlflow ui`).
 
 Streamlit is pure Python — no HTML, CSS, or JavaScript needed. Every time a user interacts with something, Streamlit re-runs the script and re-renders the UI.
 
@@ -516,7 +544,7 @@ This project was originally built with **Anthropic Claude**. It now supports thr
 | **OpenAI** | gpt-4o, gpt-4o-mini, gpt-4-turbo | `sk-...` | Paid |
 | **Groq** | llama3-70b, llama3-8b, mixtral-8x7b | `gsk_...` | Free tier |
 
-The sidebar in the app lets you select a provider, pick a model, and paste your key. The key is held in memory only for that browser session and is never stored, logged, or shared.
+The provider row at the top of the app lets you select a provider, pick a model, and paste your key. The key is held in memory only for that browser session and is never stored, logged, or shared.
 
 ---
 
@@ -604,7 +632,7 @@ To run a drift check: open the MLOps Monitor tab → click **Run Drift Check**.
 | Skill Area | Implementation |
 |---|---|
 | Agentic AI, reasoning workflows | `agent/agent.py` — full ReAct loop, live reasoning steps in UI |
-| RAG, embedding-based search systems | `rag/ingest.py` + `rag/retriever.py` — ChromaDB + sentence-transformers |
+| RAG, embedding-based search systems | ChromaDB + sentence-transformers (local); numpy keyword retriever (cloud) |
 | LLM projects, GenAI applications | Multi-provider: Anthropic, OpenAI, Groq |
 | Demand forecast, material forecast | TFT (pytorch-forecasting) on 50-part supply chain time series |
 | Deep learning frameworks | PyTorch + Lightning — TFT training with GPU support |
