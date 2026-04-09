@@ -7,15 +7,15 @@
 #   - rag/retriever_cloud.py  (numpy keyword search, no chromadb)
 #   - rag/embeddings.npz      (pre-built embeddings, committed to repo)
 #   - Statistical forecaster  (no torch/TFT needed)
-#   - gradio_app.py           (Gradio UI, not Streamlit)
+#   - app.py                  (Gradio UI, not Streamlit)
 #
 # For the full local stack (torch, chromadb, mlflow, streamlit):
 #   pip install -r requirements-local.txt
 
-pandas==2.1.4
+pandas==2.2.2
 numpy==1.26.4
-anthropic==0.89.0
-openai==2.30.0
-plotly==6.6.0
-python-dotenv==1.2.2
+anthropic>=0.50.0
+openai>=1.30.0
+plotly>=5.18.0
+python-dotenv>=1.0.0
 # gradio is intentionally omitted — HF Spaces installs it automatically
