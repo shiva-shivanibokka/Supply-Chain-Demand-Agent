@@ -47,6 +47,12 @@ from agent.agent import (
     get_demand_forecast,
 )
 
+from mlops.mlops_cloud import (
+    log_prediction,
+    get_prediction_log,
+    compute_drift_metrics,
+)
+
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
@@ -351,6 +357,16 @@ def build_forecast(part_id):
 | Lower bound (p10) | {int(p10.sum()):,} units |
 | Order qty for 90% SL (p90) | {int(p90.sum()):,} units |
 """
+    # Log to persistent storage for MLOps monitor
+    log_prediction(
+        part_id=part_id,
+        p50_daily=avg,
+        p50_total=float(p50.sum()),
+        p10_total=float(p10.sum()),
+        p90_total=float(p90.sum()),
+        horizon_days=horizon,
+        source="statistical",
+    )
     return fig_hist, fig_fc, meta_md
 
 
@@ -535,21 +551,100 @@ def build_ui():
                     outputs=[hist_chart, fc_chart, meta_md],
                 )
 
-            # MLOps tab — local only
+            # TAB 4 — MLOps Monitor
             with gr.Tab("⚙️ MLOps Monitor"):
                 gr.Markdown(
                     "### MLOps Monitor\n"
-                    "This tab requires a local MLflow server and is not available "
-                    "in the cloud deployment.\n\n"
-                    "To use it locally:\n"
-                    "```\n"
-                    "pip install -r requirements.txt\n"
-                    "mlflow ui\n"
-                    "streamlit run app.py\n"
-                    "```\n"
-                    "The full MLOps dashboard (model registry, prediction logs, "
-                    "drift detection) is available in the local Streamlit app."
+                    "Every forecast you run is automatically logged here. "
+                    "Logs persist across sessions using HF Spaces persistent storage (`/data`). "
+                    "Drift detection compares your forecast accuracy against a naive baseline."
                 )
+
+                with gr.Row():
+                    refresh_btn = gr.Button("Refresh Log", variant="secondary")
+                    drift_btn = gr.Button("Run Drift Check", variant="primary")
+
+                # ── Drift metrics ──
+                drift_md = gr.Markdown("*Click 'Run Drift Check' to compute metrics.*")
+
+                # ── Prediction log ──
+                gr.Markdown("### Prediction Log (last 100 forecasts)")
+                log_table = gr.Dataframe(
+                    headers=[
+                        "timestamp",
+                        "part_id",
+                        "source",
+                        "p50_daily",
+                        "p50_total",
+                        "p10_total",
+                        "p90_total",
+                    ],
+                    interactive=False,
+                )
+
+                # ── Most-queried parts chart ──
+                popular_chart = gr.Plot(label="Most Queried Parts")
+
+                def load_mlops():
+                    df = get_prediction_log(limit=100)
+                    if df.empty:
+                        chart = go.Figure().update_layout(
+                            title="No predictions logged yet",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            font_color="#e2e8f0",
+                        )
+                        return df, chart
+                    counts = df["part_id"].value_counts().head(15).reset_index()
+                    counts.columns = ["part_id", "count"]
+                    chart = px.bar(
+                        counts,
+                        x="part_id",
+                        y="count",
+                        title="Most Queried Parts",
+                        labels={"count": "Forecasts Run", "part_id": ""},
+                        color="count",
+                        color_continuous_scale="Blues",
+                    )
+                    chart.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#e2e8f0",
+                        height=320,
+                        showlegend=False,
+                        coloraxis_showscale=False,
+                    )
+                    display_cols = [
+                        "timestamp",
+                        "part_id",
+                        "source",
+                        "p50_daily",
+                        "p50_total",
+                        "p10_total",
+                        "p90_total",
+                    ]
+                    return df[display_cols], chart
+
+                def run_drift():
+                    m = compute_drift_metrics()
+                    if m["status"] == "NO DATA":
+                        return (
+                            "**No predictions logged yet.** Run some forecasts first."
+                        )
+                    flag = "🔴 DRIFT DETECTED" if m["drift_flag"] else "🟢 OK"
+                    return (
+                        f"**Status:** {flag}\n\n"
+                        f"| Metric | Value |\n"
+                        f"|---|---|\n"
+                        f"| Predictions evaluated | {m['n_predictions']} |\n"
+                        f"| Forecast MAE (p50 vs actual avg demand) | {m['mae']} units/day |\n"
+                        f"| Naive baseline MAE (predict global mean) | {m['baseline_mae']} units/day |\n"
+                        f"| Calibration (actuals inside p10–p90 band) | {m['calibration']}% |\n"
+                        f"\n*Drift flag triggers when forecast MAE > 1.5× baseline MAE.*"
+                    )
+
+                refresh_btn.click(load_mlops, outputs=[log_table, popular_chart])
+                drift_btn.click(run_drift, outputs=drift_md)
+                demo.load(load_mlops, outputs=[log_table, popular_chart])
 
     return demo
 
