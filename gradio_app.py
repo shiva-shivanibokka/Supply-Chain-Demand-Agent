@@ -238,6 +238,18 @@ def build_dashboard(selected_category):
     table_df["avg_daily_demand"] = table_df["avg_daily_demand"].round(1)
     table_df["days_of_supply"] = table_df["days_of_supply"].round(1)
     table_df["price_usd"] = table_df["price_usd"].round(2)
+    table_df.columns = [
+        "Part ID",
+        "Category",
+        "Supplier",
+        "Region",
+        "Inventory",
+        "Avg Daily Demand",
+        "Days of Supply",
+        "Lead Time (days)",
+        "Price (USD)",
+        "Risk",
+    ]
 
     kpis = f"""
 **Total Parts:** {len(summary)} &nbsp;&nbsp;|&nbsp;&nbsp;
@@ -490,18 +502,20 @@ def build_ui():
                 gr.Markdown("### Full Inventory Table")
                 inv_table = gr.Dataframe(
                     headers=[
-                        "part_id",
-                        "category",
-                        "supplier",
-                        "region",
-                        "inventory",
-                        "avg_daily_demand",
-                        "days_of_supply",
-                        "lead_time_days",
-                        "price_usd",
-                        "risk",
+                        "Part ID",
+                        "Category",
+                        "Supplier",
+                        "Region",
+                        "Inventory",
+                        "Avg Daily Demand",
+                        "Days of Supply",
+                        "Lead Time (days)",
+                        "Price (USD)",
+                        "Risk",
                     ],
                     interactive=False,
+                    wrap=True,
+                    column_widths=[120, 110, 110, 130, 100, 150, 130, 150, 110, 100],
                 )
 
                 def refresh_dashboard(cat):
@@ -572,15 +586,17 @@ def build_ui():
                 gr.Markdown("### Prediction Log (last 100 forecasts)")
                 log_table = gr.Dataframe(
                     headers=[
-                        "timestamp",
-                        "part_id",
-                        "source",
-                        "p50_daily",
-                        "p50_total",
-                        "p10_total",
-                        "p90_total",
+                        "Timestamp",
+                        "Part ID",
+                        "Source",
+                        "Daily Demand (p50)",
+                        "30d Total (p50)",
+                        "30d Lower (p10)",
+                        "30d Upper (p90)",
                     ],
                     interactive=False,
+                    wrap=True,
+                    column_widths=[180, 110, 120, 160, 150, 150, 150],
                 )
 
                 # ── Most-queried parts chart ──
@@ -623,7 +639,17 @@ def build_ui():
                         "p10_total",
                         "p90_total",
                     ]
-                    return df[display_cols], chart
+                    log_df = df[display_cols].copy()
+                    log_df.columns = [
+                        "Timestamp",
+                        "Part ID",
+                        "Source",
+                        "Daily Demand (p50)",
+                        "30d Total (p50)",
+                        "30d Lower (p10)",
+                        "30d Upper (p90)",
+                    ]
+                    return log_df, chart
 
                 def run_drift():
                     m = compute_drift_metrics()
