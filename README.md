@@ -116,15 +116,30 @@ Supply-Chain-Demand-Agent/
 
 ## Setup
 
-### Option A — Hugging Face Spaces (no local setup needed)
+### Option A — Use the live Hugging Face Space (no setup needed)
 
-The app is deployed at: [https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
+The app is already deployed at:
+[https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
 
-Just open the link, paste your API key (Anthropic, OpenAI, or Groq), and use it.
+Open the link, paste your API key (Anthropic, OpenAI, or Groq), and use it. No installation required.
 
 ---
 
-### Option B — Local Setup (full stack with TFT model + MLOps)
+### Option B — Deploy your own copy to Hugging Face Spaces
+
+1. Fork or clone this repo to your own GitHub account
+2. Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+3. Select **Gradio** as the SDK
+4. Connect your GitHub repo (or push directly to the HF Space git remote)
+5. Go to the Space **Settings → Variables and Secrets** and add your key:
+   - `ANTHROPIC_API_KEY` — or `OPENAI_API_KEY` — or `GROQ_API_KEY`
+6. The Space will build automatically. `requirements.txt` and `gradio_app.py` are already configured for cloud deployment.
+
+> The cloud version uses a lightweight statistical forecaster and keyword-based RAG — no PyTorch, no ChromaDB required.
+
+---
+
+### Option C — Run locally on Streamlit (full stack with TFT model + MLOps)
 
 **1. Clone the repo**
 ```bash
@@ -132,68 +147,80 @@ git clone https://github.com/shivani-shivanibokka/Supply-Chain-Demand-Agent.git
 cd Supply-Chain-Demand-Agent
 ```
 
-**2. Create and activate the virtual environment**
+**2. Create and activate a virtual environment**
 ```bash
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # Mac/Linux
 ```
 
-**3. Install dependencies**
+**3. Install the full local dependencies**
 ```bash
 pip install -r requirements-local.txt
 ```
 
 **4. Add your API key**
 
-Open `.env` and add whichever key you have:
+Create a `.env` file in the project root with whichever key you have:
 ```
-ANTHROPIC_API_KEY=sk-ant-...   # Anthropic Claude (original)
+ANTHROPIC_API_KEY=sk-ant-...   # Anthropic Claude
 # or
-OPENAI_API_KEY=sk-...          # OpenAI GPT models
+OPENAI_API_KEY=sk-...          # OpenAI GPT
 # or
 GROQ_API_KEY=gsk_...           # Groq — free tier, no credit card needed
 ```
-You only need one. If you skip this step you can also paste the key directly in the app sidebar.
+You only need one. You can also paste the key directly in the app sidebar if you skip this step.
 
----
-
-## Running the Project
-
-**Step 1 — Generate the dataset**
-```bash
-python -m data.generate_data
-```
-
-**Step 2 — Build the RAG knowledge base**
-```bash
-python -m rag.ingest
-```
-
-**Step 3 — Train the TFT model** (5–20 minutes, uses GPU if available)
-```bash
-python -m forecasting.train
-```
-
-**Step 4 — View training results**
-```bash
-mlflow ui
-# open http://localhost:5000
-```
-
-**Step 5 — Run the app**
-
-Full local stack (Streamlit, with TFT model + MLOps Monitor):
+**5. Run the app**
 ```bash
 streamlit run app.py
 # open http://localhost:8501
 ```
 
-Or run the Gradio version locally (same cloud version, no torch/mlflow needed):
+That's it. The app runs with a statistical forecaster by default. To enable the full TFT model and MLOps monitor, complete the optional steps below.
+
+---
+
+### Optional — Train the TFT model and enable MLOps Monitor
+
+> Skip this if you just want to run the app. The statistical forecaster works out of the box.
+
+**Generate the dataset** (if not already present)
 ```bash
+python -m data.generate_data
+```
+
+**Build the RAG knowledge base**
+```bash
+python -m rag.ingest
+```
+
+**Train the TFT model** (5–20 minutes, uses GPU if available)
+```bash
+python -m forecasting.train
+```
+
+**View training results in MLflow**
+```bash
+mlflow ui
+# open http://localhost:5000
+```
+
+After training, restart the Streamlit app — it will automatically load the trained model and enable the MLOps Monitor tab.
+
+---
+
+### Option D — Run the Gradio version locally (lightweight, no Streamlit)
+
+If you want the same lightweight version that runs on HF Spaces but on your own machine:
+
+```bash
+pip install -r requirements.txt
 python gradio_app.py
 # open http://localhost:7860
 ```
+
+No torch, no MLflow, no ChromaDB required.
 
 ---
 

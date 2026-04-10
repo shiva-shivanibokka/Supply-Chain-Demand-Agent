@@ -16,11 +16,10 @@ Run locally:
   python gradio_app.py
 
 How to deploy on Hugging Face Spaces:
-  1. Create a new Space (Gradio SDK)
-  2. Push this repo to the Space
-  3. Add ANTHROPIC_API_KEY / OPENAI_API_KEY to Space Secrets
-  4. HF Spaces reads requirements-cloud.txt automatically if named
-     requirements.txt in the repo root — see notes in that file.
+  1. Create a new Space (Gradio SDK) at huggingface.co/new-space
+  2. Push this repo to the Space git remote
+  3. Add your API key in Space Settings → Variables and Secrets
+  4. requirements.txt and runtime.txt are already configured for cloud deployment
 """
 
 import os
