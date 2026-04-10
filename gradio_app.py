@@ -94,9 +94,10 @@ def _df_to_html(df: pd.DataFrame, risk_col: str = None) -> str:
         rows_html += f'<tr style="background:{row_bg};">{cells}</tr>'
 
     return (
-        '<div style="overflow-x:auto;border-radius:8px;border:1px solid #2d3748;">'
+        '<div style="overflow-x:auto;overflow-y:auto;max-height:520px;'
+        'border-radius:8px;border:1px solid #2d3748;">'
         "<table style=\"width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;\">"
-        f"<thead><tr>{header_cells}</tr></thead>"
+        f'<thead style="position:sticky;top:0;z-index:1;"><tr>{header_cells}</tr></thead>'
         f"<tbody>{rows_html}</tbody>"
         "</table></div>"
     )
@@ -351,7 +352,8 @@ def build_forecast(part_id):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font_color="#ffffff",
-        height=300,
+        height=480,
+        margin=dict(t=60, b=60, l=70, r=30),
     )
 
     # Forecast chart
@@ -400,8 +402,9 @@ def build_forecast(part_id):
         font_color="#e2e8f0",
         xaxis=dict(gridcolor="#1e293b"),
         yaxis=dict(gridcolor="#1e293b"),
-        legend=dict(orientation="h", y=-0.3, x=0.5, xanchor="center"),
-        height=400,
+        legend=dict(orientation="h", y=-0.25, x=0.5, xanchor="center"),
+        height=500,
+        margin=dict(t=60, b=100, l=70, r=30),
     )
 
     meta_md = f"""
