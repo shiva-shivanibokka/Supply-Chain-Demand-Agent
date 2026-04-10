@@ -1,21 +1,18 @@
-# requirements.txt — Hugging Face Spaces deployment
-#
-# Intentionally minimal. chromadb, torch, mlflow, sentence-transformers
-# are all excluded — they cause install timeouts on cloud deployments.
-#
-# The cloud app uses:
-#   - rag/retriever_cloud.py  (numpy keyword search, no chromadb)
-#   - rag/embeddings.npz      (pre-built embeddings, committed to repo)
-#   - Statistical forecaster  (no torch/TFT needed)
-#
-# gradio is listed here so HF installs the correct version.
-# To run locally with the full stack:
-#   pip install -r requirements-local.txt
+# requirements.txt — Hugging Face Spaces (Gradio SDK)
+# Keep this file minimal. HF Spaces pre-installs gradio and its deps.
+# Do NOT pin transitive deps — let pip use cached wheels from HF's layer.
+# All packages here must have pre-built manylinux wheels (no source builds).
 
-pandas==2.2.2
-numpy==1.26.4
-anthropic==0.89.0
-openai==2.30.0
-plotly==6.6.0
-gradio==5.34.2
-python-dotenv==1.2.2
+# Data
+pandas
+numpy
+
+# Visualisation
+plotly
+
+# LLM providers
+anthropic
+openai
+
+# Utilities
+python-dotenv

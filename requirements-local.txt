@@ -1,3 +1,6 @@
+# requirements-local.txt — Full local stack (Streamlit + TFT + MLOps)
+# Install with: pip install -r requirements-local.txt
+
 # Core ML
 torch==2.5.1
 pytorch-forecasting==1.7.0
@@ -5,7 +8,7 @@ pytorch-lightning==2.2.5
 lightning==2.2.5
 
 # Data
-pandas==2.1.4
+pandas==2.2.2
 numpy==1.26.4
 scikit-learn==1.8.0
 scipy==1.17.1
@@ -14,15 +17,15 @@ scipy==1.17.1
 chromadb==1.5.5
 sentence-transformers==5.3.0
 
-# LLM / Agent — multi-provider support
-anthropic==0.89.0   # Anthropic Claude
-openai==2.30.0      # OpenAI GPT models + Groq (uses OpenAI-compatible SDK)
+# LLM / Agent
+anthropic==0.89.0
+openai==2.30.0
 
 # MLOps
 mlflow==3.10.1
 
 # UI / Visualization
-streamlit==1.56.0
+streamlit==1.45.1
 plotly==6.6.0
 
 # Utilities
