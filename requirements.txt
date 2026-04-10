@@ -1,13 +1,14 @@
 # requirements.txt — Hugging Face Spaces deployment
 #
-# All packages pinned to versions with pre-built cp311 manylinux wheels.
-# No source builds — every package here downloads a .whl and installs instantly.
-#
-# gradio is intentionally omitted — HF Spaces installs it automatically.
+# Pinned to exact versions with pre-built wheels only.
+# gradio is omitted — HF Spaces installs it automatically.
+# Packages are ordered lightest-first to reduce peak memory during resolution.
 
-pandas==2.2.2
+python-dotenv==1.0.1
 numpy==1.26.4
+pandas==2.2.2
+plotly==5.24.1
+httpx==0.27.2
+anyio==4.4.0
 anthropic==0.49.0
 openai==1.55.3
-plotly==5.24.1
-python-dotenv==1.0.1
