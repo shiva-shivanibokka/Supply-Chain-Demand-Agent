@@ -61,6 +61,47 @@ _df_cache = None
 _summary_cache = None
 
 
+def _df_to_html(df: pd.DataFrame, risk_col: str = None) -> str:
+    """Convert a DataFrame to a styled HTML table."""
+    risk_colors = {"CRITICAL": "#e74c3c", "WARNING": "#f39c12", "OK": "#27ae60"}
+
+    header_cells = "".join(
+        f'<th style="padding:10px 14px;text-align:left;background:#1e2533;'
+        f"color:#a0aec0;font-weight:600;font-size:13px;border-bottom:2px solid #2d3748;"
+        f'white-space:nowrap;">{col}</th>'
+        for col in df.columns
+    )
+
+    rows_html = ""
+    for i, row in df.iterrows():
+        row_bg = "#1a1f2e" if int(i) % 2 == 0 else "#1e2533"
+        cells = ""
+        for col, val in zip(df.columns, row):
+            if col == risk_col and val in risk_colors:
+                color = risk_colors[val]
+                cell = (
+                    f'<td style="padding:9px 14px;font-size:13px;border-bottom:1px solid #2d3748;">'
+                    f'<span style="background:{color}22;color:{color};padding:3px 10px;'
+                    f'border-radius:12px;font-weight:600;font-size:12px;">{val}</span></td>'
+                )
+            else:
+                cell = (
+                    f'<td style="padding:9px 14px;color:#e2e8f0;font-size:13px;'
+                    f"border-bottom:1px solid #2d3748;font-family:'Inter',sans-serif;\">"
+                    f"{val}</td>"
+                )
+            cells += cell
+        rows_html += f'<tr style="background:{row_bg};">{cells}</tr>'
+
+    return (
+        '<div style="overflow-x:auto;border-radius:8px;border:1px solid #2d3748;">'
+        "<table style=\"width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;\">"
+        f"<thead><tr>{header_cells}</tr></thead>"
+        f"<tbody>{rows_html}</tbody>"
+        "</table></div>"
+    )
+
+
 def _load_data() -> pd.DataFrame:
     global _df_cache
     if _df_cache is None:
@@ -180,13 +221,20 @@ def build_dashboard(selected_category):
         line_color="rgba(255,255,255,0.45)",
         annotation_text=f"Avg lead time ({cat_avg_lead}d)",
     )
-    fig1.update_traces(texttemplate="%{text:.0f}d", textposition="outside")
+    fig1.update_traces(
+        texttemplate="%{text:.0f}d",
+        textposition="outside",
+        cliponaxis=False,
+    )
+    max_dos = float(cat_data["days_of_supply"].max())
     fig1.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font_color="#ffffff",
-        height=380,
+        height=420,
         showlegend=False,
+        margin=dict(t=60, b=60, l=60, r=40),
+        yaxis=dict(range=[0, max_dos * 1.25]),
     )
 
     # Chart 2 — Inventory vs daily demand
@@ -250,6 +298,7 @@ def build_dashboard(selected_category):
         "Price (USD)",
         "Risk",
     ]
+    table_html = _df_to_html(table_df, risk_col="Risk")
 
     kpis = f"""
 **Total Parts:** {len(summary)} &nbsp;&nbsp;|&nbsp;&nbsp;
@@ -261,7 +310,7 @@ def build_dashboard(selected_category):
 🔴 {n_critical} critical &nbsp;🟡 {n_warning} warning &nbsp;🟢 {n_ok} OK &nbsp;·&nbsp;
 Avg lead time: {cat_avg_lead} days
 """
-    return kpis, fig1, fig2, table_df
+    return kpis, fig1, fig2, table_html
 
 
 # ---------------------------------------------------------------------------
@@ -500,23 +549,7 @@ def build_ui():
                 supply_chart = gr.Plot(label="Days of Supply")
                 demand_chart = gr.Plot(label="Inventory vs Daily Demand")
                 gr.Markdown("### Full Inventory Table")
-                inv_table = gr.Dataframe(
-                    headers=[
-                        "Part ID",
-                        "Category",
-                        "Supplier",
-                        "Region",
-                        "Inventory",
-                        "Avg Daily Demand",
-                        "Days of Supply",
-                        "Lead Time (days)",
-                        "Price (USD)",
-                        "Risk",
-                    ],
-                    interactive=False,
-                    wrap=True,
-                    column_widths=[120, 110, 110, 130, 100, 150, 130, 150, 110, 100],
-                )
+                inv_table = gr.HTML()
 
                 def refresh_dashboard(cat):
                     kpis, f1, f2, tbl = build_dashboard(cat)
@@ -584,20 +617,7 @@ def build_ui():
 
                 # ── Prediction log ──
                 gr.Markdown("### Prediction Log (last 100 forecasts)")
-                log_table = gr.Dataframe(
-                    headers=[
-                        "Timestamp",
-                        "Part ID",
-                        "Source",
-                        "Daily Demand (p50)",
-                        "30d Total (p50)",
-                        "30d Lower (p10)",
-                        "30d Upper (p90)",
-                    ],
-                    interactive=False,
-                    wrap=True,
-                    column_widths=[180, 110, 120, 160, 150, 150, 150],
-                )
+                log_table = gr.HTML()
 
                 # ── Most-queried parts chart ──
                 popular_chart = gr.Plot(label="Most Queried Parts")
@@ -610,7 +630,10 @@ def build_ui():
                             paper_bgcolor="rgba(0,0,0,0)",
                             font_color="#e2e8f0",
                         )
-                        return df, chart
+                        return (
+                            "<p style='color:#a0aec0;padding:12px;'>No predictions logged yet.</p>",
+                            chart,
+                        )
                     counts = df["part_id"].value_counts().head(15).reset_index()
                     counts.columns = ["part_id", "count"]
                     chart = px.bar(
@@ -649,7 +672,7 @@ def build_ui():
                         "30d Lower (p10)",
                         "30d Upper (p90)",
                     ]
-                    return log_df, chart
+                    return _df_to_html(log_df), chart
 
                 def run_drift():
                     m = compute_drift_metrics()
