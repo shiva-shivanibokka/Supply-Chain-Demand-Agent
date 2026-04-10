@@ -382,7 +382,8 @@ def build_ui():
     provider_names = list(PROVIDERS.keys())
     default_models = {p: PROVIDERS[p]["models"][0] for p in provider_names}
 
-    with gr.Blocks(title="Supply Chain Demand Agent", theme=gr.themes.Soft()) as demo:
+    _theme = gr.themes.Soft() if hasattr(gr, "themes") else None
+    with gr.Blocks(title="Supply Chain Demand Agent", theme=_theme) as demo:
         gr.Markdown(
             "# 📦 Supply Chain Demand Agent\n"
             "An agentic AI system for supply chain demand forecasting. "

@@ -6,6 +6,7 @@ colorTo: green
 sdk: gradio
 sdk_version: 5.29.0
 app_file: gradio_app.py
+python_version: "3.11"
 pinned: false
 license: mit
 short_description: Agentic AI for supply chain demand forecasting with RAG
