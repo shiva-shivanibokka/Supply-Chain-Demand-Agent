@@ -321,6 +321,148 @@ All drift metrics are logged back to MLflow so you can trend them over time with
 
 ---
 
+## Forecasting Models — TFT vs Statistical Baseline
+
+This project uses **two different forecasting models** depending on where it runs. Understanding the difference matters if you want to retrain the model or deploy the full version.
+
+---
+
+### Why two models?
+
+| | TFT (Temporal Fusion Transformer) | Statistical Baseline |
+|---|---|---|
+| **Used in** | Local Streamlit deployment | Hugging Face Spaces (cloud) |
+| **Requires** | PyTorch, pytorch-forecasting, GPU optional | NumPy only |
+| **Install size** | ~3 GB (torch + deps) | Already included in pandas/numpy |
+| **Accuracy** | High — learns trends, seasonality, part-specific patterns | Moderate — mean + trend extrapolation |
+| **Training needed** | Yes — run `forecasting/train.py` once | No — runs immediately from raw data |
+| **Prediction intervals** | Learned quantiles (p10/p50/p90) from data | Computed from historical std deviation |
+
+**The cloud version uses the statistical baseline because HF Spaces is a free CPU container.** Installing PyTorch there would take 10+ minutes and exceed the memory limit. The statistical baseline installs in seconds and produces reasonable forecasts for the demo.
+
+The local version automatically uses the TFT model if a trained checkpoint exists at `forecasting/saved_model/`. If no checkpoint is found, it falls back to the statistical baseline — so the app always works even before training.
+
+---
+
+### How the statistical baseline works
+
+The baseline is implemented in `agent/agent.py` → `_forecast_statistical()`:
+
+1. Takes the last 60 days of demand for the selected part
+2. Computes the mean (`avg`) and standard deviation (`std`)
+3. Adds a small upward trend (`+5%` over 30 days) to the median forecast
+4. Computes prediction intervals using `±1.65σ` (which covers ~90% of a normal distribution)
+
+```
+p50 = avg + small trend
+p10 = p50 - 1.65 × std    (lower bound)
+p90 = p50 + 1.65 × std    (upper bound — use for safety stock orders)
+```
+
+This is a well-known statistical method (essentially an auto-regressive mean model with Gaussian uncertainty). It works well for parts with stable, low-volatility demand. For parts with strong seasonality or sudden spikes, the TFT model is significantly more accurate.
+
+---
+
+### How the TFT model works
+
+The TFT (Temporal Fusion Transformer) is implemented in `forecasting/model.py` and trained via `forecasting/train.py`.
+
+It improves on the statistical baseline in three specific ways:
+
+**1. It separates inputs by type**
+
+| Input type | Examples | How TFT uses it |
+|---|---|---|
+| Static (never changes per part) | category, supplier, region | Learns "Valve parts from SupplierA behave like X" |
+| Past (historical observations) | demand, inventory | Learns historical patterns |
+| Future known | day of week, month, quarter | Uses the calendar to anticipate seasonality in advance |
+
+The statistical baseline ignores all of this — it only looks at recent demand numbers.
+
+**2. Variable Selection Network**
+
+Before forecasting, TFT automatically learns which input features actually matter. If `day_of_week` turns out to be irrelevant for a particular part category, TFT learns to ignore it. This is built-in feature selection.
+
+**3. Self-attention over the full history**
+
+Like GPT/BERT, TFT uses attention to look back across the entire 90-day window and identify which historical time steps are most informative for the current prediction. A statistical model can only use recent summary statistics.
+
+The result: TFT is much more accurate for parts with strong seasonality, supplier-specific patterns, or irregular spikes — which is exactly what real supply chain data looks like.
+
+---
+
+### How to retrain the TFT model
+
+> Do this locally. Training requires `requirements-local.txt` and takes 5–20 minutes depending on your CPU/GPU.
+
+**Step 1 — Make sure your data is present**
+```bash
+python -m data.generate_data
+```
+This creates `data/supply_chain_data.csv` with 73,050 rows (50 parts × 4 years of daily demand).
+
+**Step 2 — Run training**
+```bash
+python -m forecasting.train
+```
+
+This will:
+- Load and prepare the dataset
+- Build the `TimeSeriesDataSet` with all input types (static, past, future)
+- Train TFT with hidden size 64, 4 attention heads, 10% dropout
+- Use `EarlyStopping` — stops automatically when validation loss plateaus
+- Save the best checkpoint to `forecasting/saved_model/` (e.g. `best-epoch=12-val_loss=0.48.ckpt`)
+- Log all hyperparameters, metrics, and the model artifact to MLflow
+
+**Step 3 — Inspect training results**
+```bash
+mlflow ui
+# open http://localhost:5000
+```
+You'll see a full dashboard: loss curves per epoch, hyperparameters, and a comparison table if you've run multiple training experiments.
+
+**Step 4 — Run the app — it picks up the new model automatically**
+```bash
+streamlit run app.py
+```
+The `get_demand_forecast()` function in `agent/agent.py` checks for `.ckpt` files in `forecasting/saved_model/` at startup. If one is found, it loads it and uses the TFT for all forecasts. You'll see `source: TFT model` instead of `source: statistical baseline` in the prediction log.
+
+**Step 5 — Promote the new version in the MLOps Monitor** *(optional)*
+
+In the Streamlit app, go to the **MLOps Monitor** tab → **Model Registry** → select the new version → click **Promote to Production**. This is how you track which model version is serving live traffic.
+
+---
+
+### Retraining with your own data
+
+To use this project with real demand data instead of the synthetic dataset:
+
+1. **Format your data** to match `data/supply_chain_data.csv`:
+
+```
+date,part_id,category,supplier,region,demand,inventory,lead_time_days,price_usd
+2023-01-01,PART_001,Controller,SupplierA,North America,79,3420,23,822.29
+...
+```
+
+Required columns: `date` (daily), `part_id`, `category`, `supplier`, `region`, `demand` (units/day), `inventory`, `lead_time_days`, `price_usd`.
+
+2. **Place your file** at `data/supply_chain_data.csv` (overwrite the synthetic one)
+
+3. **Rebuild the RAG knowledge base** if your policy documents have changed:
+```bash
+python -m rag.ingest
+```
+
+4. **Retrain the model**:
+```bash
+python -m forecasting.train
+```
+
+5. **Run the app** — everything else (agent, dashboard, forecast tab) will automatically use your data.
+
+---
+
 ## File-by-File Explanation
 
 ---
