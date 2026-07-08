@@ -28,6 +28,7 @@ __pycache__/
 
 # Environment variable files
 .env
+.env*.local
 
 # OS files
 .DS_Store
@@ -35,3 +36,8 @@ Thumbs.db
 
 # VS Code settings
 .vscode/
+
+# Node / Next.js
+node_modules/
+.next/
+*.tsbuildinfo
