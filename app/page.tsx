@@ -5,6 +5,7 @@ import { ProviderBar } from "@/components/provider-bar";
 import { Assistant } from "@/components/assistant";
 import { InventoryDashboard } from "@/components/inventory-dashboard";
 import { ForecastTab } from "@/components/forecast-tab";
+import { MlopsTab } from "@/components/mlops-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEFAULT_PROVIDER, PROVIDERS, type ProviderName } from "@/lib/providers";
 
@@ -41,8 +42,8 @@ export default function Home() {
         <TabsContent value="forecast" className="min-h-0 flex-1 overflow-y-auto pt-3">
           <ForecastTab />
         </TabsContent>
-        <TabsContent value="mlops" className="pt-3 text-sm text-muted-foreground">
-          MLOps monitor coming soon.
+        <TabsContent value="mlops" className="min-h-0 flex-1 overflow-y-auto pt-3">
+          <MlopsTab />
         </TabsContent>
       </Tabs>
     </main>
