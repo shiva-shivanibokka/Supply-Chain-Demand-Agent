@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.10",
@@ -21,9 +22,11 @@
     "@ai-sdk/openai": "^4.0.9",
     "@ai-sdk/react": "^4.0.19",
     "@base-ui/react": "^1.6.0",
+    "@neondatabase/serverless": "^1.1.0",
     "ai": "^7.0.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "react": "19.2.4",
@@ -39,6 +42,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
