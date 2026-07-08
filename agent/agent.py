@@ -43,12 +43,7 @@ import pandas as pd
 import numpy as np
 from typing import Any, Dict, List, Optional, Generator
 
-# Use chromadb retriever locally; fall back to lightweight numpy retriever
-# on Hugging Face Spaces where chromadb is not installed.
-try:
-    from rag.retriever import retrieve, format_context
-except ImportError:
-    from rag.retriever_cloud import retrieve, format_context
+from rag.retriever import retrieve, format_context
 
 
 # ---------------------------------------------------------------------------
