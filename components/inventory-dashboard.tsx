@@ -1,0 +1,249 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { summarizeInventory, type RiskLevel } from "@/lib/inventory-summary";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+// Fixed status palette (never themed) — same steps hold contrast in light and dark.
+const RISK_COLOR: Record<RiskLevel, string> = {
+  CRITICAL: "#d03b3b",
+  WARNING: "#fab219",
+  OK: "#0ca30c",
+};
+
+const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
+  CRITICAL: "bg-[#d03b3b]/15 text-[#d03b3b]",
+  WARNING: "bg-[#fab219]/20 text-[#9a6b06] dark:text-[#fab219]",
+  OK: "bg-[#0ca30c]/15 text-[#0ca30c]",
+};
+
+// Categorical slots 1 & 2 from the reference palette — distinct from status colors.
+const INVENTORY_COLOR = "#2a78d6";
+const DEMAND_COLOR = "#1baf7a";
+
+const tickStyle = { fontSize: 11, fill: "var(--muted-foreground)" };
+const axisLine = { stroke: "var(--border)" };
+const tooltipStyle = {
+  background: "var(--popover)",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+  color: "var(--popover-foreground)",
+  fontSize: 12,
+};
+
+const summary = summarizeInventory();
+const CATEGORIES = Array.from(new Set(summary.parts.map((p) => p.category))).sort();
+
+export function InventoryDashboard() {
+  const [category, setCategory] = useState<string>(CATEGORIES[0]);
+
+  const filtered = useMemo(
+    () => summary.parts.filter((p) => p.category === category),
+    [category],
+  );
+
+  const avgLeadTime = useMemo(() => {
+    if (filtered.length === 0) return 0;
+    const sum = filtered.reduce((acc, p) => acc + p.lead_time_days, 0);
+    return Math.round((sum / filtered.length) * 10) / 10;
+  }, [filtered]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard label="Total parts" value={summary.parts.length} />
+        <KpiCard label="Critical" value={summary.counts.critical} color={RISK_COLOR.CRITICAL} />
+        <KpiCard label="Warning" value={summary.counts.warning} color={RISK_COLOR.WARNING} />
+        <KpiCard label="OK" value={summary.counts.ok} color={RISK_COLOR.OK} />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Category</span>
+        <Select value={category} onValueChange={(value) => value && setCategory(value)}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Days of supply by risk — {category}</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="part_id"
+                  tick={tickStyle}
+                  tickLine={false}
+                  axisLine={axisLine}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  tick={tickStyle}
+                  tickLine={false}
+                  axisLine={axisLine}
+                  label={{ value: "Days", angle: -90, position: "insideLeft", fill: "var(--muted-foreground)", fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value) => [`${value} days`, "Days of supply"]}
+                />
+                <ReferenceLine
+                  y={avgLeadTime}
+                  stroke="var(--foreground)"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `Avg lead time: ${avgLeadTime}d`,
+                    position: "insideTopRight",
+                    fill: "var(--foreground)",
+                    fontSize: 11,
+                  }}
+                />
+                <Bar dataKey="daysOfSupply" name="Days of supply" radius={[4, 4, 0, 0]}>
+                  {filtered.map((p) => (
+                    <Cell key={p.part_id} fill={RISK_COLOR[p.risk]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory vs. avg daily demand — {category}</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="part_id"
+                  tick={tickStyle}
+                  tickLine={false}
+                  axisLine={axisLine}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis tick={tickStyle} tickLine={false} axisLine={axisLine} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted-foreground)" }} />
+                <Bar dataKey="inventory" name="Inventory (units)" fill={INVENTORY_COLOR} radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="avg_daily_demand"
+                  name="Avg daily demand (units/day)"
+                  fill={DEMAND_COLOR}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All parts</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Part</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Region</TableHead>
+                <TableHead className="text-right">Inventory</TableHead>
+                <TableHead className="text-right">Avg daily demand</TableHead>
+                <TableHead className="text-right">Lead time (d)</TableHead>
+                <TableHead className="text-right">Days of supply</TableHead>
+                <TableHead>Risk</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.parts.map((p) => (
+                <TableRow key={p.part_id}>
+                  <TableCell className="font-medium">{p.part_id}</TableCell>
+                  <TableCell>{p.category}</TableCell>
+                  <TableCell>{p.supplier}</TableCell>
+                  <TableCell>{p.region}</TableCell>
+                  <TableCell className="text-right">{Math.round(p.inventory)}</TableCell>
+                  <TableCell className="text-right">{p.avg_daily_demand.toFixed(1)}</TableCell>
+                  <TableCell className="text-right">{p.lead_time_days}</TableCell>
+                  <TableCell className="text-right">{p.daysOfSupply}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={RISK_BADGE_CLASS[p.risk]}>
+                      {p.risk}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+          {color && (
+            <span className="inline-block size-2 rounded-full" style={{ background: color }} />
+          )}
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-semibold text-foreground">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
