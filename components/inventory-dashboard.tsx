@@ -45,6 +45,20 @@ const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
   OK: "bg-[#0ca30c]/15 text-[#0ca30c]",
 };
 
+// Category chips use the cool/brand family so they never collide with the
+// red/amber/green risk colors.
+const CATEGORY_CHIP: Record<string, string> = {
+  Controller: "bg-[#6366f1]/15 text-[#a5b4fc]",
+  Filter: "bg-[#22d3ee]/15 text-[#67e8f9]",
+  Pump: "bg-[#d946ef]/15 text-[#f0abfc]",
+  Sensor: "bg-[#38bdf8]/15 text-[#7dd3fc]",
+  Valve: "bg-[#a78bfa]/15 text-[#c4b5fd]",
+};
+const catChip = (c: string) => CATEGORY_CHIP[c] ?? "bg-muted text-muted-foreground";
+
+const usd = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
 // Categorical slots 1 & 2 from the reference palette — distinct from status colors.
 const INVENTORY_COLOR = "#2a78d6";
 const DEMAND_COLOR = "#1baf7a";
@@ -204,33 +218,57 @@ export function InventoryDashboard() {
         <CardHeader>
           <CardTitle>Parts — {category} ({filtered.length})</CardTitle>
         </CardHeader>
-        <CardContent className="max-h-[26rem] overflow-auto">
+        <CardContent className="max-h-[26rem] overflow-auto p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-card [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-muted-foreground [&_tr]:border-b [&_tr]:border-border">
               <TableRow>
-                <TableHead>Part</TableHead>
+                <TableHead className="pl-4">Part</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead>Region</TableHead>
                 <TableHead className="text-right">Inventory</TableHead>
-                <TableHead className="text-right">Avg daily demand</TableHead>
-                <TableHead className="text-right">Lead time (d)</TableHead>
-                <TableHead className="text-right">Days of supply</TableHead>
-                <TableHead>Risk</TableHead>
+                <TableHead className="text-right">Demand/day</TableHead>
+                <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Lead time</TableHead>
+                <TableHead className="text-right">Days supply</TableHead>
+                <TableHead className="pr-4 text-right">Risk</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => (
-                <TableRow key={p.part_id}>
-                  <TableCell className="font-medium">{p.part_id}</TableCell>
-                  <TableCell>{p.category}</TableCell>
-                  <TableCell>{p.supplier}</TableCell>
-                  <TableCell>{p.region}</TableCell>
-                  <TableCell className="text-right">{Math.round(p.inventory)}</TableCell>
-                  <TableCell className="text-right">{p.avg_daily_demand.toFixed(1)}</TableCell>
-                  <TableCell className="text-right">{p.lead_time_days}</TableCell>
-                  <TableCell className="text-right">{p.daysOfSupply}</TableCell>
+              {filtered.map((p, i) => (
+                <TableRow
+                  key={p.part_id}
+                  className={i % 2 === 1 ? "bg-muted/20" : undefined}
+                >
+                  <TableCell className="pl-4 font-mono text-xs font-medium">
+                    {p.part_id}
+                  </TableCell>
                   <TableCell>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${catChip(p.category)}`}
+                    >
+                      {p.category}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{p.supplier}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.region}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {Math.round(p.inventory).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {p.avg_daily_demand.toFixed(1)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {usd(p.price_usd)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{p.lead_time_days}d</TableCell>
+                  <TableCell
+                    className="text-right font-medium tabular-nums"
+                    style={{ color: RISK_COLOR[p.risk] }}
+                  >
+                    {p.daysOfSupply}
+                  </TableCell>
+                  <TableCell className="pr-4 text-right">
                     <Badge variant="outline" className={RISK_BADGE_CLASS[p.risk]}>
                       {p.risk}
                     </Badge>

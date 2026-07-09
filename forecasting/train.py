@@ -63,6 +63,10 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+# CSVLogger avoids Lightning's default TensorBoardLogger, which crashes on this
+# machine due to a tensorboard/protobuf version conflict. MLflow still handles
+# the real experiment tracking below; CSVLogger just satisfies the LR monitor.
+from lightning.pytorch.loggers import CSVLogger
 from torch.utils.data import DataLoader
 from pytorch_forecasting.data import TimeSeriesDataSet
 
@@ -181,7 +185,7 @@ def train():
     # Everything inside `with mlflow.start_run()` is tracked automatically.
     with mlflow.start_run(run_name="tft-training") as run:
         print(f"\nMLflow Run ID: {run.info.run_id}")
-        print(f"View at: mlflow ui  →  http://localhost:5000\n")
+        print(f"View at: mlflow ui  ->  http://localhost:5000\n")
 
         # Log our configuration so we can reproduce this run later
         mlflow.log_params(
@@ -208,6 +212,7 @@ def train():
             devices=1,
             gradient_clip_val=0.1,  # clip gradients to prevent exploding gradients
             callbacks=[early_stop, lr_monitor, checkpoint],
+            logger=CSVLogger("lightning_logs", name="tft"),
             enable_progress_bar=True,
             log_every_n_steps=5,
         )
@@ -260,7 +265,7 @@ def train():
         # The Model Registry is MLflow's way of managing model versions.
         # Instead of just saving a file, you register it with a name and
         # a version number. You can then transition versions through stages:
-        #   None → Staging → Production → Archived
+        #   None -> Staging -> Production -> Archived
         #
         # In a real company: a data scientist trains a new model (Staging),
         # it gets evaluated, and only then promoted to Production — the
@@ -289,7 +294,7 @@ def train():
                 stage="Staging",
                 archive_existing_versions=False,
             )
-            print(f"  Model registered: {MODEL_REGISTRY_NAME} v{version} → Staging")
+            print(f"  Model registered: {MODEL_REGISTRY_NAME} v{version} -> Staging")
 
             # Tag the version with key metadata so it's traceable
             client.set_model_version_tag(
@@ -309,7 +314,7 @@ def train():
         print(f"  Best model saved to: {checkpoint.best_model_path}")
         print(f"  MLflow run ID: {run.info.run_id}")
         print(f"  Model registered as: {MODEL_REGISTRY_NAME}")
-        print(f"  Run: mlflow ui  →  http://localhost:5000")
+        print(f"  Run: mlflow ui  ->  http://localhost:5000")
 
     return checkpoint.best_model_path
 

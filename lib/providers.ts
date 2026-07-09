@@ -18,13 +18,14 @@ export const PROVIDERS: Record<
   },
   Groq: {
     label: "Groq (free)",
-    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"], // verify current IDs
+    // Groq deprecated the llama-3.x IDs on 2026-06-17; GPT-OSS are the replacements.
+    models: ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
     keyPlaceholder: "gsk_...",
     free: true,
   },
   Google: {
     label: "Google Gemini",
-    models: ["gemini-2.0-flash", "gemini-1.5-pro"], // verify current IDs
+    models: ["gemini-2.5-flash", "gemini-2.0-flash"],
     keyPlaceholder: "AIza...",
     free: false,
   },

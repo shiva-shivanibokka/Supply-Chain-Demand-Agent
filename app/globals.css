@@ -128,3 +128,62 @@
     @apply font-sans;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Brand signature — a single cyan→indigo→fuchsia "signal" gradient, used only
+   on the active tab ring and thin card top-edges. Rules live outside @layer so
+   they win over Tailwind utility classes (e.g. base-ui's data-active:bg-*).
+   --------------------------------------------------------------------------- */
+:root {
+  --brand-1: #22d3ee; /* cyan   */
+  --brand-2: #6366f1; /* indigo */
+  --brand-3: #d946ef; /* fuchsia */
+  --brand-gradient: linear-gradient(90deg, var(--brand-1), var(--brand-2), var(--brand-3));
+}
+
+/* Pill tabs: quiet outline by default, gradient ring + glow when active. */
+.tab-pill {
+  flex: none;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  padding: 0.4rem 1.1rem;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.tab-pill:hover {
+  border-color: color-mix(in oklab, var(--brand-2) 45%, var(--border));
+}
+.tab-pill[data-active] {
+  color: var(--foreground);
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    var(--brand-gradient) border-box;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--brand-2) 22%, transparent),
+    0 6px 22px -10px color-mix(in oklab, var(--brand-2) 70%, transparent);
+}
+
+/* Card / box edge highlight: a thin gradient rule across the top. */
+.panel-edge {
+  position: relative;
+}
+.panel-edge::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  background: var(--brand-gradient);
+  opacity: 0.85;
+}
+
+/* Brand-tinted text for the wordmark. */
+.brand-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

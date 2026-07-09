@@ -45,3 +45,7 @@ node_modules/
 # Local agent scratch / review artifacts
 .superpowers/
 *.diff
+
+.vercel
+forecasting/*.log
+lightning_logs/
