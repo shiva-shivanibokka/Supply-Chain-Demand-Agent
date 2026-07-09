@@ -192,13 +192,36 @@
    a deep base. Fixed so it stays put as the page scrolls; cards sit on top. */
 .dark body {
   background:
-    radial-gradient(900px 520px at 6% -6%, rgba(34, 211, 238, 0.42), transparent 62%),
-    radial-gradient(760px 460px at 98% 2%, rgba(217, 70, 239, 0.40), transparent 60%),
-    radial-gradient(820px 520px at 82% 102%, rgba(16, 185, 129, 0.36), transparent 60%),
-    radial-gradient(1000px 720px at 26% 116%, rgba(99, 102, 241, 0.46), transparent 60%),
-    radial-gradient(760px 560px at 52% 44%, rgba(244, 114, 182, 0.20), transparent 62%),
+    radial-gradient(1000px 600px at 4% -6%, rgba(34, 211, 238, 0.58), transparent 66%),
+    radial-gradient(840px 540px at 99% 0%, rgba(217, 70, 239, 0.55), transparent 64%),
+    radial-gradient(900px 580px at 86% 104%, rgba(16, 185, 129, 0.5), transparent 64%),
+    radial-gradient(1100px 800px at 22% 118%, rgba(99, 102, 241, 0.6), transparent 64%),
+    radial-gradient(880px 640px at 52% 42%, rgba(244, 114, 182, 0.3), transparent 66%),
     var(--background);
   background-attachment: fixed;
+}
+
+/* Themed scrollbars — the default OS bars are white and clash with the dark UI. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 28%, transparent) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 26%, transparent);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 42%, transparent);
+  background-clip: padding-box;
 }
 
 /* Rendered-markdown content (assistant answers): tables, lists, emphasis. */
