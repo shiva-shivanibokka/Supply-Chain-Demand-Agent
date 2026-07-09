@@ -8,6 +8,8 @@ import {
   getToolName,
   type UIMessage,
 } from "ai";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { DEFAULT_PROVIDER, PROVIDERS, type ProviderName } from "@/lib/providers";
 import { ProviderBar } from "@/components/provider-bar";
 import { Button } from "@/components/ui/button";
@@ -75,10 +77,12 @@ function MessageBubble({ message }: { message: UIMessage }) {
   }
 
   return (
-    <div className="mr-auto max-w-[85%] space-y-2">
+    <div className="mr-auto w-full space-y-2">
       <ReasoningTrace parts={message.parts} />
       {text && (
-        <div className="rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap">{text}</div>
+        <div className="md rounded-lg bg-muted px-3 py-2">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+        </div>
       )}
     </div>
   );

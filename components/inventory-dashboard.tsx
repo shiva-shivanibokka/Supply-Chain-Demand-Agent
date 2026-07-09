@@ -48,11 +48,11 @@ const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
 // Category chips use the cool/brand family so they never collide with the
 // red/amber/green risk colors.
 const CATEGORY_CHIP: Record<string, string> = {
-  Controller: "bg-[#6366f1]/15 text-[#4338ca] ring-1 ring-inset ring-[#6366f1]/30",
-  Filter: "bg-[#06b6d4]/15 text-[#0e7490] ring-1 ring-inset ring-[#06b6d4]/30",
-  Pump: "bg-[#d946ef]/15 text-[#a21caf] ring-1 ring-inset ring-[#d946ef]/30",
-  Sensor: "bg-[#3b82f6]/15 text-[#1d4ed8] ring-1 ring-inset ring-[#3b82f6]/30",
-  Valve: "bg-[#a855f7]/15 text-[#7e22ce] ring-1 ring-inset ring-[#a855f7]/30",
+  Controller: "bg-[#6366f1]/20 text-[#4338ca] dark:text-[#a5b4fc] ring-1 ring-inset ring-[#6366f1]/40",
+  Filter: "bg-[#06b6d4]/20 text-[#0e7490] dark:text-[#67e8f9] ring-1 ring-inset ring-[#06b6d4]/40",
+  Pump: "bg-[#d946ef]/20 text-[#a21caf] dark:text-[#f0abfc] ring-1 ring-inset ring-[#d946ef]/40",
+  Sensor: "bg-[#3b82f6]/20 text-[#1d4ed8] dark:text-[#93c5fd] ring-1 ring-inset ring-[#3b82f6]/40",
+  Valve: "bg-[#a855f7]/20 text-[#7e22ce] dark:text-[#d8b4fe] ring-1 ring-inset ring-[#a855f7]/40",
 };
 const catChip = (c: string) =>
   CATEGORY_CHIP[c] ?? "bg-muted text-foreground ring-1 ring-inset ring-foreground/20";
