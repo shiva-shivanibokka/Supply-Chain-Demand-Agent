@@ -6,6 +6,11 @@ export const maxDuration = 15;
 
 const REPO = "shiva-shivanibokka/Supply-Chain-Demand-Agent";
 const WORKFLOW = "retrain.yml";
+const COOLDOWN_MS = 10 * 60 * 1000;
+
+// ponytail: best-effort, per serverless instance only — resets on cold start
+// and isn't shared across instances. A real rate limit needs shared storage.
+let lastDispatch = 0;
 
 export async function POST() {
   const token = process.env.GITHUB_DISPATCH_TOKEN;
@@ -20,20 +25,34 @@ export async function POST() {
     );
   }
 
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+  if (Date.now() - lastDispatch < COOLDOWN_MS) {
+    return Response.json(
+      { ok: false, error: "Retraining was triggered recently — wait a few minutes before retrying." },
+      { status: 429 },
+    );
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({ ref: "main" }),
       },
-      body: JSON.stringify({ ref: "main" }),
-    },
-  );
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return Response.json({ ok: false, error: `Failed to reach GitHub: ${msg}` }, { status: 502 });
+  }
 
   if (res.status === 204) {
+    lastDispatch = Date.now();
     return Response.json({
       ok: true,
       message:

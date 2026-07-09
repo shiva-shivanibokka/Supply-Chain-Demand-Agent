@@ -77,9 +77,22 @@ describe("computeDrift", () => {
     const rows: DriftInputRow[] = [
       { partId: "P1", p50Daily: 10, p10Total: 150, p90Total: 450, horizonDays: 30 },
       { partId: "P2", p50Daily: 20, p10Total: 450, p90Total: 750, horizonDays: 30 },
+      { partId: "P3", p50Daily: 30, p10Total: 750, p90Total: 1050, horizonDays: 30 },
       { partId: "UNKNOWN", p50Daily: 999, p10Total: 1, p90Total: 2, horizonDays: 30 },
     ];
     const result = computeDrift(rows, PARTS);
-    expect(result.nPredictions).toBe(2);
+    expect(result.nPredictions).toBe(3);
+  });
+
+  it("returns NO-DATA when 3+ rows are logged but fewer than 3 match a known part_id", () => {
+    const rows: DriftInputRow[] = [
+      { partId: "P1", p50Daily: 10, p10Total: 150, p90Total: 450, horizonDays: 30 },
+      { partId: "UNKNOWN1", p50Daily: 999, p10Total: 1, p90Total: 2, horizonDays: 30 },
+      { partId: "UNKNOWN2", p50Daily: 999, p10Total: 1, p90Total: 2, horizonDays: 30 },
+    ];
+    const result = computeDrift(rows, PARTS);
+    expect(result.status).toBe("NO-DATA");
+    expect(result.nPredictions).toBe(0);
+    expect(result.mae).toBeNull();
   });
 });

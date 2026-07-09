@@ -102,13 +102,23 @@ export function InventoryDashboard() {
     return Math.round((sum / filtered.length) * 10) / 10;
   }, [filtered]);
 
+  const kpiCounts = useMemo(() => {
+    const counts = { critical: 0, warning: 0, ok: 0 };
+    for (const p of filtered) {
+      if (p.risk === "CRITICAL") counts.critical++;
+      else if (p.risk === "WARNING") counts.warning++;
+      else counts.ok++;
+    }
+    return counts;
+  }, [filtered]);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Total parts" value={summary.parts.length} color="#6366f1" />
-        <KpiCard label="Critical" value={summary.counts.critical} color={RISK_COLOR.CRITICAL} />
-        <KpiCard label="Warning" value={summary.counts.warning} color={RISK_COLOR.WARNING} />
-        <KpiCard label="OK" value={summary.counts.ok} color={RISK_COLOR.OK} />
+        <KpiCard label="Total parts" value={filtered.length} color="#6366f1" />
+        <KpiCard label="Critical" value={kpiCounts.critical} color={RISK_COLOR.CRITICAL} />
+        <KpiCard label="Warning" value={kpiCounts.warning} color={RISK_COLOR.WARNING} />
+        <KpiCard label="OK" value={kpiCounts.ok} color={RISK_COLOR.OK} />
       </div>
 
       <div className="flex items-center gap-2">

@@ -15,12 +15,32 @@ Loads the model and dataset once, then predicts per part (fast, no re-loads).
 
 import glob
 import json
+import math
 import os
 
 
 DATA = "data/supply_chain_data.csv"
 OUT = "lib/data/forecasts.json"
 CKPT_DIR = "forecasting/saved_model"
+
+
+def _sanity_check(part_id: str, p10: list, p50: list, p90: list) -> None:
+    """Guards the auto-committed forecasts.json: fail loudly instead of
+    letting a broken forecast (NaN/inf, negative, or crossed quantiles)
+    get pushed straight to main with no human review."""
+    for name, series in (("p10", p10), ("p50", p50), ("p90", p90)):
+        for x in series:
+            if not math.isfinite(x) or x < 0:
+                raise SystemExit(
+                    f"Forecast sanity check failed for {part_id}: {name} has "
+                    f"non-finite or negative value ({x})"
+                )
+    for i, (lo, mid, hi) in enumerate(zip(p10, p50, p90)):
+        if not (lo <= mid <= hi):
+            raise SystemExit(
+                f"Forecast sanity check failed for {part_id}: day {i} quantiles "
+                f"not ordered (p10={lo}, p50={mid}, p90={hi})"
+            )
 
 
 def main() -> None:
@@ -54,11 +74,11 @@ def main() -> None:
         # Store the full 30-day daily quantile series so the UI can plot the real
         # forecast shape (trend/seasonality), not a flat aggregate. Totals and the
         # daily median are derived from these arrays downstream.
-        out[part_id] = {
-            "p10": [round(float(x), 1) for x in p10],
-            "p50": [round(float(x), 1) for x in p50],
-            "p90": [round(float(x), 1) for x in p90],
-        }
+        p10_r = [round(float(x), 1) for x in p10]
+        p50_r = [round(float(x), 1) for x in p50]
+        p90_r = [round(float(x), 1) for x in p90]
+        _sanity_check(part_id, p10_r, p50_r, p90_r)
+        out[part_id] = {"p10": p10_r, "p50": p50_r, "p90": p90_r}
         if i % 25 == 0 or i == len(part_ids):
             print(f"  {i}/{len(part_ids)} parts forecast")
 

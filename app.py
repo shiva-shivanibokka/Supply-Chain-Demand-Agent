@@ -20,10 +20,11 @@ How to deploy for free:
   4. Add ANTHROPIC_API_KEY in the Streamlit secrets dashboard
   5. Deploy - your app gets a public URL
 
-The app has three tabs:
+The app has four tabs:
   1. AI Assistant  - chat with the agent, ask questions about inventory and forecasts
   2. Inventory Dashboard - visual overview of all parts and their risk levels
   3. Demand Forecast - pick a part and see its 30-day forecast chart
+  4. MLOps Monitor - model registry, prediction log, and drift detection
 """
 
 import os
@@ -42,12 +43,10 @@ from datetime import datetime
 from agent.agent import (
     run_agent,
     run_agent_with_steps,
-    run_tool,
     get_inventory_status,
     PROVIDERS,
     DEFAULT_PROVIDER,
     DEFAULT_MODEL,
-    get_demand_forecast,
 )
 from mlops.monitor import (
     get_prediction_log,

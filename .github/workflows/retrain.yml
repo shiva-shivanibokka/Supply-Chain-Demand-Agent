@@ -33,6 +33,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install CPU PyTorch + ML stack
+        # torch==2.5.1 here must stay in sync with requirements-local.txt, or pip
+        # will resolve a mismatched torch and pull the large CUDA wheel instead
+        # of this CPU-only one.
         run: |
           python -m pip install --upgrade pip
           pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu

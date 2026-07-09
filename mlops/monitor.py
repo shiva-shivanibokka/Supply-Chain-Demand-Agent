@@ -296,9 +296,11 @@ def compute_drift_metrics(
     result["n_predictions"] = len(errors_df)
     result["mae_30d"] = round(float(errors_df["error"].mean()), 2)
 
-    # 7-day subset
-    errors_7d = errors_df.tail(min(len(errors_df), 10))
-    result["mae_7d"] = round(float(errors_7d["error"].mean()), 2)
+    # 7-day subset: filter by actual timestamp, not just the last N logged rows
+    errors_df["timestamp"] = pd.to_datetime(errors_df["timestamp"], errors="coerce")
+    errors_7d = errors_df[errors_df["timestamp"] >= cutoff_7d]
+    if not errors_7d.empty:
+        result["mae_7d"] = round(float(errors_7d["error"].mean()), 2)
 
     # Calibration score
     if inside_band:

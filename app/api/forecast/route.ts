@@ -2,7 +2,13 @@ import { getForecast } from "@/lib/tools/forecast";
 import { logPrediction } from "@/lib/db/log";
 
 export async function POST(req: Request) {
-  const { partId } = (await req.json()) as { partId?: string };
+  let body: { partId?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { partId } = body;
 
   if (!partId) {
     return new Response(JSON.stringify({ error: "Missing partId" }), { status: 400 });

@@ -176,11 +176,11 @@ def build_dataset(df: pd.DataFrame) -> Tuple[TimeSeriesDataSet, TimeSeriesDataSe
         # Static numerical: the lead time and price don't change per part.
         # TFT can learn "expensive parts with long lead times need more safety stock"
         static_reals=["lead_time_days", "price_usd"],
-        # Time-varying inputs we know only for the PAST (not the future).
-        # We don't know future inventory levels until they happen.
-        time_varying_known_categoricals=["month", "day_of_week", "quarter"],
         # Time-varying inputs we know for BOTH past and future.
         # We always know what month it will be next January.
+        time_varying_known_categoricals=["month", "day_of_week", "quarter"],
+        # Time-varying inputs we know only for the PAST (not the future).
+        # We don't know future inventory levels until they happen.
         time_varying_unknown_reals=["demand", "inventory"],
         # Normalize demand per part so the model doesn't think PART_050
         # is just "more important" because it has higher raw demand numbers.

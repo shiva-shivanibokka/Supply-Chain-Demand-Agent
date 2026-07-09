@@ -26,10 +26,6 @@ __pycache__/
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-# Environment variable files
-.env
-.env*.local
-
 # OS files
 .DS_Store
 Thumbs.db
@@ -48,4 +44,6 @@ node_modules/
 
 .vercel
 forecasting/*.log
-lightning_logs/
+
+# Environment variable files
+.env*

@@ -32,7 +32,15 @@ const NO_DATA: DriftResult = {
 const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
 
 export function computeDrift(rows: DriftInputRow[], parts: PartLike[]): DriftResult {
-  if (rows.length < 3) return NO_DATA;
+  // Match logged predictions to actuals by part.
+  const actualByPart = new Map(parts.map((p) => [p.part_id, p.avg_daily_demand]));
+  const matched = rows
+    .filter((r) => actualByPart.has(r.partId))
+    .map((r) => ({ ...r, actualAvg: actualByPart.get(r.partId) as number }));
+  // The min-sample check must run on `matched`, not the raw log: MAE/calibration
+  // are computed over matched rows, so 3+ logged rows with <3 known part_ids
+  // would otherwise return a confident status from an n=1-2 sample.
+  if (matched.length < 3) return NO_DATA;
 
   // Baseline MAE spans all parts, while model `mae` below spans only logged/matched
   // parts — different populations, so driftFlag is a demo-grade heuristic, not a
@@ -41,13 +49,6 @@ export function computeDrift(rows: DriftInputRow[], parts: PartLike[]): DriftRes
   const actuals = parts.map((p) => p.avg_daily_demand);
   const globalMean = mean(actuals);
   const baselineMae = mean(actuals.map((a) => Math.abs(a - globalMean)));
-
-  // Match logged predictions to actuals by part.
-  const actualByPart = new Map(parts.map((p) => [p.part_id, p.avg_daily_demand]));
-  const matched = rows
-    .filter((r) => actualByPart.has(r.partId))
-    .map((r) => ({ ...r, actualAvg: actualByPart.get(r.partId) as number }));
-  if (matched.length === 0) return NO_DATA;
 
   // MAE: p50_daily vs actual average daily demand.
   const mae = mean(matched.map((r) => Math.abs(r.p50Daily - r.actualAvg)));

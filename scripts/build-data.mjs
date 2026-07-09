@@ -16,10 +16,6 @@ const col = {
 };
 
 const rows = lines.slice(1).map((l) => l.split(","));
-const maxDate = rows.reduce((m, r) => (r[col.date] > m ? r[col.date] : m), "");
-const cutoff = new Date(maxDate);
-cutoff.setDate(cutoff.getDate() - 30);
-const cutoffStr = cutoff.toISOString().slice(0, 10);
 
 const byPart = new Map();
 for (const r of rows) {
@@ -32,6 +28,11 @@ const parts = [];
 for (const [part, prows] of byPart) {
   prows.sort((a, b) => a[col.date].localeCompare(b[col.date]));
   const last = prows[prows.length - 1];
+  // Cutoff is per-part (not global): a part whose own history doesn't reach
+  // the global max date would otherwise get an empty last30 window.
+  const cutoff = new Date(last[col.date]);
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
   const last30 = prows.filter((r) => r[col.date] >= cutoffStr);
   const avg = last30.reduce((s, r) => s + Number(r[col.demand]), 0) / (last30.length || 1);
   const history = prows.slice(-90).map((r) => ({

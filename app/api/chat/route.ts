@@ -7,7 +7,7 @@ import { getInventoryStatus } from "@/lib/tools/inventory";
 import { getForecast } from "@/lib/tools/forecast";
 import { searchKnowledge } from "@/lib/tools/knowledge";
 import { logPrediction } from "@/lib/db/log";
-import type { ProviderName } from "@/lib/providers";
+import { PROVIDERS, type ProviderName } from "@/lib/providers";
 
 export const maxDuration = 30;
 
@@ -29,13 +29,23 @@ function buildModel(provider: ProviderName, model: string, apiKey: string) {
 }
 
 export async function POST(req: Request) {
-  const { provider, model, apiKey, messages } = (await req.json()) as {
-    provider: ProviderName;
-    model: string;
-    apiKey: string;
-    messages: UIMessage[];
-  };
+  let body: { provider: ProviderName; model: string; apiKey: string; messages: UIMessage[] };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { provider, model, apiKey, messages } = body;
 
+  if (!provider || !(provider in PROVIDERS)) {
+    return Response.json({ error: "Unknown or missing provider" }, { status: 400 });
+  }
+  if (!model || typeof model !== "string") {
+    return Response.json({ error: "Missing model" }, { status: 400 });
+  }
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return Response.json({ error: "Missing or empty messages" }, { status: 400 });
+  }
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "Missing API key" }), { status: 400 });
   }

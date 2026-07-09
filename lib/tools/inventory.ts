@@ -3,15 +3,15 @@ import type { PartRecord } from "@/lib/data/types";
 
 const DATA = parts as PartRecord[];
 
+export function daysOfSupply(p: PartRecord): number {
+  return Math.round((p.inventory / Math.max(p.avg_daily_demand, 0.1)) * 10) / 10;
+}
+
 function risk(p: PartRecord): "CRITICAL" | "WARNING" | "OK" {
-  const dos = p.inventory / Math.max(p.avg_daily_demand, 0.1);
+  const dos = daysOfSupply(p);
   if (dos < p.lead_time_days) return "CRITICAL";
   if (dos < 2 * p.lead_time_days) return "WARNING";
   return "OK";
-}
-
-export function daysOfSupply(p: PartRecord): number {
-  return Math.round((p.inventory / Math.max(p.avg_daily_demand, 0.1)) * 10) / 10;
 }
 
 export function riskOf(p: PartRecord) {
@@ -19,7 +19,8 @@ export function riskOf(p: PartRecord) {
 }
 
 export function getInventoryStatus(opts: { partId?: string; topN?: number } = {}): string {
-  const { partId, topN = 10 } = opts;
+  const { partId, topN: rawTopN } = opts;
+  const topN = rawTopN && rawTopN > 0 ? rawTopN : 10;
   if (partId) {
     const p = DATA.find((d) => d.part_id === partId);
     if (!p) return `Part '${partId}' not found in dataset.`;

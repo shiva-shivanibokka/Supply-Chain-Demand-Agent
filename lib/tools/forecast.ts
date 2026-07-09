@@ -45,7 +45,15 @@ export function getForecast(partId: string): ForecastResult {
   const pre = TFT[partId];
   let daily: Daily;
   let source: string;
-  if (pre && Array.isArray(pre.p50) && pre.p50.length) {
+  if (
+    pre &&
+    Array.isArray(pre.p50) &&
+    pre.p50.length &&
+    Array.isArray(pre.p10) &&
+    Array.isArray(pre.p90) &&
+    pre.p10.length === pre.p50.length &&
+    pre.p90.length === pre.p50.length
+  ) {
     daily = { p10: pre.p10, p50: pre.p50, p90: pre.p90 };
     source = "TFT model";
   } else {

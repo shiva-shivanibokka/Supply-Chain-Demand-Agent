@@ -261,8 +261,8 @@ def get_demand_forecast(
             source = "TFT model"
             _log_forecast_to_mlflow(part_id, result, source)
             return result
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[forecast] TFT path failed, using statistical baseline: {e}")
 
     result = _forecast_statistical(part_id, part_data)
     _log_forecast_to_mlflow(part_id, result, source)
@@ -490,8 +490,21 @@ def _append_assistant_turn(messages: list, result: dict, provider: str) -> None:
     else:
         # OpenAI / Groq
         msg = result["raw"].choices[0].message
+        tool_calls = None
+        if msg.tool_calls:
+            tool_calls = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
         messages.append(
-            {"role": "assistant", "content": msg.content, "tool_calls": msg.tool_calls}
+            {"role": "assistant", "content": msg.content, "tool_calls": tool_calls}
         )
 
 
@@ -568,7 +581,14 @@ def run_agent(
         api_key = os.environ.get(PROVIDERS[provider]["env_key"], "")
 
     call_llm = _build_client(provider, api_key)
-    messages = [{"role": "user", "content": user_message}]
+    if provider == "Anthropic":
+        messages = [{"role": "user", "content": user_message}]
+    else:
+        # OpenAI / Groq have no separate system= kwarg - seed it as a system message
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ]
 
     for _ in range(max_iterations):
         result = call_llm(messages, model, api_key)
@@ -607,7 +627,14 @@ def run_agent_with_steps(
         api_key = os.environ.get(PROVIDERS[provider]["env_key"], "")
 
     call_llm = _build_client(provider, api_key)
-    messages = [{"role": "user", "content": user_message}]
+    if provider == "Anthropic":
+        messages = [{"role": "user", "content": user_message}]
+    else:
+        # OpenAI / Groq have no separate system= kwarg - seed it as a system message
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ]
 
     for _ in range(max_iterations):
         result = call_llm(messages, model, api_key)
