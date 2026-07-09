@@ -17,7 +17,11 @@ export async function logPrediction(row: PredictionRow): Promise<void> {
     console.warn("[predictions] DATABASE_URL unset — skipping log");
     return;
   }
-  await db.insert(predictions).values(row);
+  try {
+    await db.insert(predictions).values(row);
+  } catch (err) {
+    console.error("[predictions] insert failed:", err);
+  }
 }
 
 export async function getPredictionLog(limit = 100) {

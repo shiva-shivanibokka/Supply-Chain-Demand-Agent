@@ -34,6 +34,9 @@ const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length
 export function computeDrift(rows: DriftInputRow[], parts: PartLike[]): DriftResult {
   if (rows.length < 3) return NO_DATA;
 
+  // Baseline MAE spans all parts, while model `mae` below spans only logged/matched
+  // parts — different populations, so driftFlag is a demo-grade heuristic, not a
+  // rigorous comparison.
   // Baseline MAE: predict the global mean demand for every part.
   const actuals = parts.map((p) => p.avg_daily_demand);
   const globalMean = mean(actuals);
