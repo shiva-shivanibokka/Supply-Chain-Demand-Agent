@@ -173,11 +173,11 @@
   left: 0;
   right: 0;
   top: 0;
-  height: 2px;
+  height: 3px;
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   background: var(--brand-gradient);
-  opacity: 0.85;
+  opacity: 1;
 }
 
 /* Brand-tinted text for the wordmark. */

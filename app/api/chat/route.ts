@@ -1,4 +1,4 @@
-import { streamText, tool, convertToModelMessages, type UIMessage } from "ai";
+import { streamText, tool, stepCountIs, convertToModelMessages, type UIMessage } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -44,6 +44,9 @@ export async function POST(req: Request) {
     model: buildModel(provider, model, apiKey),
     system: SYSTEM,
     messages: await convertToModelMessages(messages),
+    // Keep looping so the agent reads tool results and writes a final answer,
+    // instead of stopping after the first tool call.
+    stopWhen: stepCountIs(6),
     tools: {
       get_inventory_status: tool({
         description:

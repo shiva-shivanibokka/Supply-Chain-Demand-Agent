@@ -48,13 +48,14 @@ const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
 // Category chips use the cool/brand family so they never collide with the
 // red/amber/green risk colors.
 const CATEGORY_CHIP: Record<string, string> = {
-  Controller: "bg-[#6366f1]/15 text-[#a5b4fc]",
-  Filter: "bg-[#22d3ee]/15 text-[#67e8f9]",
-  Pump: "bg-[#d946ef]/15 text-[#f0abfc]",
-  Sensor: "bg-[#38bdf8]/15 text-[#7dd3fc]",
-  Valve: "bg-[#a78bfa]/15 text-[#c4b5fd]",
+  Controller: "bg-[#6366f1]/15 text-[#4338ca] ring-1 ring-inset ring-[#6366f1]/30",
+  Filter: "bg-[#06b6d4]/15 text-[#0e7490] ring-1 ring-inset ring-[#06b6d4]/30",
+  Pump: "bg-[#d946ef]/15 text-[#a21caf] ring-1 ring-inset ring-[#d946ef]/30",
+  Sensor: "bg-[#3b82f6]/15 text-[#1d4ed8] ring-1 ring-inset ring-[#3b82f6]/30",
+  Valve: "bg-[#a855f7]/15 text-[#7e22ce] ring-1 ring-inset ring-[#a855f7]/30",
 };
-const catChip = (c: string) => CATEGORY_CHIP[c] ?? "bg-muted text-muted-foreground";
+const catChip = (c: string) =>
+  CATEGORY_CHIP[c] ?? "bg-muted text-foreground ring-1 ring-inset ring-foreground/20";
 
 const usd = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -104,7 +105,7 @@ export function InventoryDashboard() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Total parts" value={summary.parts.length} />
+        <KpiCard label="Total parts" value={summary.parts.length} color="#6366f1" />
         <KpiCard label="Critical" value={summary.counts.critical} color={RISK_COLOR.CRITICAL} />
         <KpiCard label="Warning" value={summary.counts.warning} color={RISK_COLOR.WARNING} />
         <KpiCard label="OK" value={summary.counts.ok} color={RISK_COLOR.OK} />
@@ -245,7 +246,7 @@ export function InventoryDashboard() {
                   </TableCell>
                   <TableCell>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${catChip(p.category)}`}
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${catChip(p.category)}`}
                     >
                       {p.category}
                     </span>
@@ -295,7 +296,12 @@ function KpiCard({ label, value, color }: { label: string; value: number; color?
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-semibold text-foreground">{value}</div>
+        <div
+          className="text-3xl font-bold tabular-nums"
+          style={color ? { color } : undefined}
+        >
+          {value}
+        </div>
       </CardContent>
     </Card>
   );

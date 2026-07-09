@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export function ProviderBar({
   provider,
@@ -73,10 +74,23 @@ export function ProviderBar({
         />
       </div>
 
-      <span className="text-xs text-muted-foreground">
-        {config.free ? "Free tier available" : "Bring your own key"} — held in this browser
-        tab only, never saved.
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          {config.free ? "Free tier available" : "Bring your own key"} — held in this browser
+          tab only, never saved.
+        </span>
+        {apiKey && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onApiKeyChange("")}
+            className="h-7 shrink-0 text-xs"
+          >
+            Clear key
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
