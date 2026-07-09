@@ -41,3 +41,7 @@ Thumbs.db
 node_modules/
 .next/
 *.tsbuildinfo
+
+# Local agent scratch / review artifacts
+.superpowers/
+*.diff
