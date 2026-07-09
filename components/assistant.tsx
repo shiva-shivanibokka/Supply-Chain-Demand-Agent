@@ -158,13 +158,14 @@ export function Assistant() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask the supply chain assistant…"
             disabled={busy}
+            className="h-10 border-2"
           />
           <Button type="submit" disabled={busy || !input.trim()}>
             {busy ? "Working…" : "Send"}
           </Button>
         </form>
       ) : (
-        <p className="rounded-lg border border-dashed border-border p-3 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border-2 border-dashed border-[#6366f1]/50 bg-[#6366f1]/5 p-3 text-center text-sm text-muted-foreground">
           Paste your API key above to chat — Groq offers a free key with no card required.
         </p>
       )}

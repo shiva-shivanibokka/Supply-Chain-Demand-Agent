@@ -206,34 +206,40 @@ export function MlopsTab() {
             Automated retraining pipeline
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p className="leading-relaxed">
             When drift appears, this fires a GitHub Actions pipeline that retrains the TFT,
             exports fresh forecasts, and opens a pull request — merging it redeploys the new
             model. It closes the loop: monitor → retrain → review → ship.
           </p>
+
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={triggerRetrain} disabled={retraining}>
               {retraining ? "Dispatching…" : "Trigger retraining"}
             </Button>
             {retrainMsg && (
-              <span className={retrainMsg.ok ? "text-[#0ca30c]" : "text-destructive"}>
+              <span className={`text-sm ${retrainMsg.ok ? "text-[#0ca30c]" : "text-destructive"}`}>
                 {retrainMsg.text}
               </span>
             )}
           </div>
-          <p className="text-xs leading-relaxed">
-            <strong className="text-foreground">Why CPU + GitHub Actions?</strong> Vercel&rsquo;s
-            serverless functions have no GPU and can&rsquo;t run PyTorch, so training can&rsquo;t
-            happen in the app itself. On the free tier we retrain on GitHub&rsquo;s CPU runners —
-            which are slow, so the CI run is scoped to fewer parts/epochs and gated behind a PR
-            (a scoped CPU model shouldn&rsquo;t silently replace the full GPU-trained one).
-            <br />
-            <strong className="text-foreground">With a paid tier</strong> we&rsquo;d swap in GPU
-            runners or a managed training service (SageMaker, Vertex AI, Modal, Replicate) for
-            full-speed retraining, auto-evaluate the new model against the baseline, and
-            canary-promote it through the model registry — no manual step, no scoping.
-          </p>
+
+          <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4 text-xs leading-relaxed">
+            <p>
+              <strong className="text-foreground">Why CPU + GitHub Actions?</strong>{" "}
+              Vercel&rsquo;s serverless functions have no GPU and can&rsquo;t run PyTorch, so
+              training can&rsquo;t happen in the app. On the free tier we retrain on
+              GitHub&rsquo;s CPU runners — slow, so the CI run is scoped to fewer parts and
+              epochs, and gated behind a PR so a scoped CPU model never silently replaces the
+              full GPU-trained one.
+            </p>
+            <p>
+              <strong className="text-foreground">With a paid tier</strong> we&rsquo;d swap in
+              GPU runners or a managed training service (SageMaker, Vertex AI, Modal, Replicate)
+              for full-speed retraining, auto-evaluate the new model against the baseline, and
+              canary-promote it through the model registry — no manual step, no scoping.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
