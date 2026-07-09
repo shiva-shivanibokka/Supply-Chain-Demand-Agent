@@ -51,11 +51,13 @@ def main() -> None:
         p10 = preds[:, :, 0].cpu().numpy().flatten()[:DECODER_LENGTH]
         p50 = preds[:, :, 1].cpu().numpy().flatten()[:DECODER_LENGTH]
         p90 = preds[:, :, 2].cpu().numpy().flatten()[:DECODER_LENGTH]
+        # Store the full 30-day daily quantile series so the UI can plot the real
+        # forecast shape (trend/seasonality), not a flat aggregate. Totals and the
+        # daily median are derived from these arrays downstream.
         out[part_id] = {
-            "p10": round(float(p10.sum())),
-            "p50": round(float(p50.sum())),
-            "p90": round(float(p90.sum())),
-            "p50Daily": round(float(p50.mean()), 2),
+            "p10": [round(float(x), 1) for x in p10],
+            "p50": [round(float(x), 1) for x in p50],
+            "p90": [round(float(x), 1) for x in p90],
         }
         if i % 25 == 0 or i == len(part_ids):
             print(f"  {i}/{len(part_ids)} parts forecast")

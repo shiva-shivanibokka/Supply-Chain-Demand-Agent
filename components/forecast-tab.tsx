@@ -38,10 +38,15 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
-type ForecastResponse = { p10: number; p50: number; p90: number; p50Daily: number; source: string };
+type ForecastResponse = {
+  p10: number;
+  p50: number;
+  p90: number;
+  p50Daily: number;
+  source: string;
+  daily: { p10: number[]; p50: number[]; p90: number[] };
+};
 
-// Distributes the 30-day totals evenly across future days — the API only
-// exposes aggregate quantiles, not a per-day series.
 function futureDates(lastDate: string, days: number): string[] {
   const start = new Date(lastDate + "T00:00:00Z");
   return Array.from({ length: days }, (_, i) => {
@@ -51,17 +56,16 @@ function futureDates(lastDate: string, days: number): string[] {
   });
 }
 
+// Plots the real per-day p10/p50/p90 series so the forecast shows trend and
+// seasonality rather than a flat line.
 export function buildForecastSeries(lastDate: string, forecast: ForecastResponse, days = 30) {
-  const dates = futureDates(lastDate, days);
-  const p10 = forecast.p10 / days;
-  const p90 = forecast.p90 / days;
-  return dates.map((date) => ({
-    date,
-    p10,
-    p90,
-    band: Math.max(p90 - p10, 0),
-    p50: forecast.p50Daily,
-  }));
+  const n = forecast.daily.p50.length || days;
+  const dates = futureDates(lastDate, n);
+  return dates.map((date, i) => {
+    const p10 = forecast.daily.p10[i];
+    const p90 = forecast.daily.p90[i];
+    return { date, p10, p90, band: Math.max(p90 - p10, 0), p50: forecast.daily.p50[i] };
+  });
 }
 
 const SOURCE_BADGE_CLASS: Record<string, string> = {

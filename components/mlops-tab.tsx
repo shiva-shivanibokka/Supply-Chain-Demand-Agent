@@ -235,8 +235,9 @@ export function MlopsTab() {
               trained than a local GPU run (retrain locally on a GPU for best quality).
             </p>
             <p>
-              <strong className="text-foreground">With a paid tier</strong> we&rsquo;d swap in
-              GPU runners or a managed training service (SageMaker, Vertex AI, Modal, Replicate)
+              <strong className="text-foreground">With a paid tier</strong>{" "}
+              we&rsquo;d swap in GPU runners or a managed training service (SageMaker, Vertex AI,
+              Modal, Replicate)
               for full-speed retraining, auto-evaluate the new model against the baseline, and
               canary-promote it through the model registry — no manual step, no scoping.
             </p>
