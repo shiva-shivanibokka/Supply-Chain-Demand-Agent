@@ -62,7 +62,8 @@ export function MlopsTab() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    // Fetch on mount; `refresh` itself resets error/data state before its fetch.
+    refresh(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [refresh]);
 
   const topParts = useMemo(() => {

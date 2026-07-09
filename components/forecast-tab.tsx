@@ -78,7 +78,9 @@ export function ForecastTab() {
 
   useEffect(() => {
     let cancelled = false;
-    setForecast(null);
+    // Reset stale forecast/error before refetching on partId change;
+    // `cancelled` below guards the async result against a stale request.
+    setForecast(null); // eslint-disable-line react-hooks/set-state-in-effect
     setError(null);
     fetch("/api/forecast", {
       method: "POST",

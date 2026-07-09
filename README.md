@@ -1,22 +1,15 @@
----
-title: Supply Chain Demand Agent
-sdk: gradio
-sdk_version: 5.29.0
-app_file: gradio_app.py
-python_version: "3.11"
-license: mit
-short_description: Agentic AI for supply chain demand forecasting with RAG
----
-
 # Supply Chain Demand Agent
 
 An end-to-end agentic AI system for supply chain demand forecasting. Built for capital equipment and semiconductor manufacturing companies managing large inventories of spare parts.
 
-The system forecasts 30-day part demand using a Temporal Fusion Transformer, answers natural language questions using a RAG pipeline over internal supply chain documents, and acts autonomously through an AI agent that decides which tools to call to answer a question.
+The system forecasts 30-day part demand, answers natural language questions using a retrieval-augmented (RAG) tool over internal supply chain documents, and acts autonomously through an AI agent that decides which tools to call to answer a question.
 
-This project was originally built using **Anthropic Claude**. It has since been extended to support multiple LLM providers — users can plug in whichever API key they have, including a **free Groq key** (no credit card required).
+The project has two layers:
 
-> **Bring Your Own Key:** This app never uses a shared API key. You select your provider (Anthropic, OpenAI, or Groq) and paste your own key at the top of the page. It is held in session memory only and never stored or shared. See the [LLM Provider](#llm-provider--bring-your-own-key) section for how to get a key.
+1. **A live Next.js web app** (this repo's root) — a Vercel AI SDK–powered chat assistant with BYOK (bring your own key) across four LLM providers, an inventory dashboard, a demand forecast tab, and an MLOps monitor tab, backed by Neon Postgres.
+2. **A local Python ML stack** (`forecasting/`, `rag/`, `mlops/`, `agent/`, `data/`) — where the actual Temporal Fusion Transformer model is trained, evaluated, and exported. Its output (`lib/data/forecasts.json`) is what the web app serves as real "TFT model" forecasts.
+
+> **Bring Your Own Key:** The web app never uses a shared API key. You select a provider (Anthropic, OpenAI, Groq, or Google) and paste your own key in the top bar. It's held in browser state only for that session, sent per-request to the chat route, and never stored or logged server-side. See [BYOK](#llm-providers--bring-your-own-key) below for how to get a key.
 
 ---
 
@@ -37,43 +30,51 @@ Answering these manually means opening spreadsheets, reading policy documents, a
 ```
 User question
       ↓
-  Agent (Claude) — decides which tools to call
+Chat route (app/api/chat) — Vercel AI SDK streamText + tool loop
       ↓                  ↓                    ↓
-Inventory tool     Forecast tool        RAG search tool
- reads CSV          TFT or statistical   ChromaDB (local)
-                    baseline (cloud)     or keyword search (cloud)
+Inventory tool     Forecast tool        Knowledge-base tool
+ reads parts.json   precomputed TFT      keyword search over
+ (built from CSV)   JSON, else           docs.json (built from
+                     statistical         rag/embeddings.npz)
+                     baseline
       ↓                  ↓                    ↓
-          Claude reads all results, writes final answer
+      Model (Anthropic / OpenAI / Groq / Google, user's key) writes final answer
                           ↓
-          Gradio UI (Hugging Face Spaces) or Streamlit (local)
+      Next.js UI (Assistant / Inventory / Forecast / MLOps tabs)
+                          ↓
+      Neon Postgres (prediction log, optional — no-ops if DATABASE_URL unset)
 ```
+
+The Python stack (`forecasting/`, `rag/`, `agent/agent.py`, `mlops/monitor.py`) is a separate, local-only pipeline: it trains the real TFT model, tracks experiments in MLflow, and builds the RAG knowledge base — then exports its outputs (`lib/data/forecasts.json`, `lib/data/docs.json`) for the web app to consume as static data. The web app itself has no Python or PyTorch dependency at runtime.
 
 ---
 
 ## Tech Stack
 
+### Web app (root, live/Vercel)
+
+| Layer | Tool |
+|---|---|
+| Framework | Next.js 16 (App Router) + TypeScript |
+| Agent / chat | Vercel AI SDK (`ai`, `@ai-sdk/react`) — streaming + tool calling |
+| LLM providers | Anthropic, OpenAI, Groq, Google (user's own key, per-request) |
+| UI | shadcn/ui + Tailwind CSS v4 |
+| Charts | Recharts |
+| Database | Neon Postgres (serverless HTTP driver) + Drizzle ORM |
+| Forecast data | Precomputed TFT output (`lib/data/forecasts.json`), statistical fallback |
+| Knowledge search | Keyword/TF scoring over `lib/data/docs.json` (no vector DB at runtime) |
+| Tests | Vitest |
+
+### Python ML stack (local training layer)
+
 | Layer | Tool |
 |---|---|
 | Forecasting model | Temporal Fusion Transformer (pytorch-forecasting) |
 | Deep learning | PyTorch + Lightning |
-| Agent / LLM | Anthropic Claude, OpenAI GPT, or Groq (user's choice) |
-| RAG embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| Vector database | ChromaDB |
+| RAG embeddings | sentence-transformers (all-MiniLM-L6-v2) + ChromaDB |
 | MLOps | MLflow (experiment tracking, model registry, prediction logging, drift detection) |
-| UI (cloud) | Gradio + Plotly — deployed on Hugging Face Spaces |
-| UI (local) | Streamlit + Plotly — full stack with MLOps Monitor tab |
-| RAG (cloud) | Keyword search over pre-built embeddings (numpy only) |
-| RAG (local) | ChromaDB + sentence-transformers (all-MiniLM-L6-v2) |
+| Local UI (optional) | Streamlit + Plotly (`app.py`) |
 | Data | Pandas, synthetic supply chain dataset |
-
----
-
-## Live Demo
-
-Deployed on Hugging Face Spaces (Gradio):
-[https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
-
-The cloud version uses a lightweight statistical forecaster (no PyTorch required) and a keyword-based RAG retriever (no ChromaDB required). The full TFT model and MLOps monitor are available in local deployment only.
 
 ---
 
@@ -81,289 +82,165 @@ The cloud version uses a lightweight statistical forecaster (no PyTorch required
 
 ```
 Supply-Chain-Demand-Agent/
-├── gradio_app.py                   ← Gradio UI — Hugging Face Spaces (cloud entry point)
-├── app.py                          ← Streamlit UI — local only (full stack with MLOps)
-├── requirements.txt                ← Cloud-minimal deps (gradio, pandas, numpy, anthropic, openai, plotly)
-├── requirements-local.txt          ← Full local stack (torch, chromadb, mlflow, streamlit)
-├── .env                            ← your API key goes here (never committed)
-├── .gitignore
-├── .streamlit/
-│   └── secrets.toml.example        ← template for Streamlit Cloud deployment
+├── app/                             ← Next.js App Router
+│   ├── page.tsx                     ← main page: provider bar + 4 tabs
+│   └── api/
+│       ├── chat/route.ts            ← AI SDK streamText + tool loop, 4-provider BYOK
+│       ├── forecast/route.ts        ← forecast lookup endpoint
+│       └── mlops/route.ts           ← prediction log + drift endpoint
+├── components/                      ← shadcn/ui + Recharts components (tabs, provider bar)
+├── lib/
+│   ├── providers.ts                 ← provider/model registry (BYOK)
+│   ├── tools/                       ← inventory / forecast / knowledge tool implementations
+│   ├── db/                          ← Drizzle schema, Neon client, prediction log, drift
+│   └── data/                        ← generated JSON (parts, forecasts, docs) — checked in
+├── scripts/
+│   ├── build-data.mjs               ← CSV → lib/data/parts.json (runs pre-build/pre-dev)
+│   └── build-docs.mjs               ← points at the one-off Python extractor for docs.json
+├── docs/adr/                        ← architecture decision records
+├── .github/workflows/ci.yml         ← lint, typecheck, test, build:data on push/PR
+│
 ├── data/
-│   ├── generate_data.py            ← synthetic dataset generator
-│   └── supply_chain_data.csv       ← 73,050 rows, 50 parts × 4 years
+│   ├── generate_data.py             ← synthetic dataset generator
+│   └── supply_chain_data.csv        ← 73,050 rows, 50 parts × 4 years
 ├── forecasting/
-│   ├── model.py                    ← TFT configuration + dataset builder
-│   └── train.py                    ← training loop + MLflow tracking
+│   ├── model.py                     ← TFT configuration + dataset builder
+│   ├── train.py                     ← training loop + MLflow tracking
+│   └── export_forecasts.py          ← trained model → lib/data/forecasts.json
 ├── rag/
-│   ├── ingest.py                   ← embeds 10 documents into ChromaDB (local)
-│   ├── retriever.py                ← semantic search via ChromaDB (local)
-│   ├── retriever_cloud.py          ← keyword search, no chromadb (cloud)
-│   └── embeddings.npz              ← pre-built embeddings committed to repo (cloud)
+│   ├── ingest.py                    ← embeds documents into ChromaDB (local)
+│   ├── retriever.py                 ← semantic search via ChromaDB (local)
+│   └── embeddings.npz               ← source docs for lib/data/docs.json
 ├── agent/
-│   └── agent.py                    ← multi-provider agent (Anthropic / OpenAI / Groq)
+│   └── agent.py                     ← original multi-provider Python agent (local CLI/Streamlit)
 ├── mlops/
-│   └── monitor.py                  ← prediction logging, drift detection, model registry
-└── notebooks/
-    └── walkthrough.ipynb           ← step-by-step tutorial notebook
+│   └── monitor.py                   ← prediction logging, drift detection, model registry
+├── notebooks/
+│   └── walkthrough.ipynb            ← step-by-step tutorial notebook
+├── app.py                           ← Streamlit UI — optional local alternative to the Next.js app
+└── requirements-local.txt           ← full local Python stack (torch, chromadb, mlflow, streamlit)
 ```
 
 ---
 
 ## Setup
 
-### Option A — Use the live Hugging Face Space (no setup needed)
+### Option A — Run the web app locally
 
-The app is already deployed at:
-[https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent](https://huggingface.co/spaces/shiva-1993/Supply-Chain-Demand-Agent)
-
-Open the link, paste your API key (Anthropic, OpenAI, or Groq), and use it. No installation required.
-
----
-
-### Option B — Deploy your own copy to Hugging Face Spaces
-
-1. Fork or clone this repo to your own GitHub account
-2. Go to [huggingface.co/new-space](https://huggingface.co/new-space)
-3. Select **Gradio** as the SDK
-4. Connect your GitHub repo (or push directly to the HF Space git remote)
-5. Go to the Space **Settings → Variables and Secrets** and add your key:
-   - `ANTHROPIC_API_KEY` — or `OPENAI_API_KEY` — or `GROQ_API_KEY`
-6. The Space will build automatically. `requirements.txt` and `gradio_app.py` are already configured for cloud deployment.
-
-> The cloud version uses a lightweight statistical forecaster and keyword-based RAG — no PyTorch, no ChromaDB required.
-
----
-
-### Option C — Run locally on Streamlit (full stack with TFT model + MLOps)
-
-**1. Clone the repo**
+**1. Clone and install**
 ```bash
 git clone https://github.com/shivani-shivanibokka/Supply-Chain-Demand-Agent.git
 cd Supply-Chain-Demand-Agent
+npm ci
 ```
 
-**2. Create and activate a virtual environment**
+**2. Run it**
 ```bash
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux
+npm run dev
+# open http://localhost:3000
 ```
 
-**3. Install the full local dependencies**
+That's it — `data/supply_chain_data.csv` and the RAG document set are already checked into the repo, so `npm run dev` builds `lib/data/parts.json` and runs immediately. No API key is stored on the server: paste a key for any provider in the top bar to chat.
+
+`DATABASE_URL` is **optional** for local dev. Without it, `lib/db/client.ts` exports `db = null` and `logPrediction()` no-ops (logs a warning, doesn't throw) — every other tab works normally, the MLOps tab will just show no prediction history.
+
+### Option B — Deploy on Vercel
+
+1. Import this repo on [vercel.com/new](https://vercel.com/new).
+2. Add the **Neon** integration (Storage → Neon → Create) — this provisions a database and sets `DATABASE_URL` automatically.
+3. Run the schema push once, against that database:
+   ```bash
+   npm run db:push
+   ```
+4. Deploy. No other environment variables are required — BYOK keys are supplied per-session by whoever uses the app.
+
+### Option C — Train the TFT model and update the forecasts (local Python stack)
+
+The web app ships with `lib/data/forecasts.json` already populated from a trained model. To retrain it yourself:
+
 ```bash
 pip install -r requirements-local.txt
+python -m data.generate_data          # regenerate the synthetic dataset (optional, already checked in)
+python -m forecasting.train           # trains the TFT, ~5-20 minutes, logs to MLflow
+python -m forecasting.export_forecasts  # writes lib/data/forecasts.json for the web app
 ```
 
-**4. Add your API key**
+If `forecasting.export_forecasts` hasn't been run (or a part has no entry), `lib/tools/forecast.ts` falls back to a statistical baseline computed from the last 60 days of demand — so the app always produces a forecast even without a trained model.
 
-Create a `.env` file in the project root with whichever key you have:
-```
-ANTHROPIC_API_KEY=sk-ant-...   # Anthropic Claude
-# or
-OPENAI_API_KEY=sk-...          # OpenAI GPT
-# or
-GROQ_API_KEY=gsk_...           # Groq — free tier, no credit card needed
-```
-You only need one. You can also paste the key directly in the app sidebar if you skip this step.
-
-**5. Run the app**
+**Optional — run the original Streamlit app locally** (same agent logic, Python-native UI, includes an MLOps Monitor tab wired directly to MLflow):
 ```bash
 streamlit run app.py
 # open http://localhost:8501
 ```
 
-That's it. The app runs with a statistical forecaster by default. To enable the full TFT model and MLOps monitor, complete the optional steps below.
-
 ---
 
-### Optional — Train the TFT model and enable MLOps Monitor
+## What the Web App Shows
 
-> Skip this if you just want to run the app. The statistical forecaster works out of the box.
-
-**Generate the dataset** (if not already present)
-```bash
-python -m data.generate_data
-```
-
-**Build the RAG knowledge base**
-```bash
-python -m rag.ingest
-```
-
-**Train the TFT model** (5–20 minutes, uses GPU if available)
-```bash
-python -m forecasting.train
-```
-
-**View training results in MLflow**
-```bash
-mlflow ui
-# open http://localhost:5000
-```
-
-After training, restart the Streamlit app — it will automatically load the trained model and enable the MLOps Monitor tab.
-
----
-
-### Option D — Run the Gradio version locally (lightweight, no Streamlit)
-
-If you want the same lightweight version that runs on HF Spaces but on your own machine:
-
-```bash
-pip install -r requirements.txt
-python gradio_app.py
-# open http://localhost:7860
-```
-
-No torch, no MLflow, no ChromaDB required.
-
----
-
-## What the App Shows
-
-The app has four tabs. None of the content is hardcoded — everything is derived live from the dataset.
-
-The first three tabs (AI Assistant, Inventory Dashboard, Demand Forecast) are available in both the cloud Gradio app and the local Streamlit app. The MLOps Monitor tab is local-only — it requires a running MLflow server.
-
----
+Four tabs, all derived live from the dataset — nothing is hardcoded.
 
 ### Tab 1 — AI Assistant
 
-A chat interface powered by the Claude agent.
+A chat interface (`components/assistant.tsx`) built on `useChat` from `@ai-sdk/react`.
 
-- **API key input** — select your provider and paste your key at the top of the page. The key is held in session memory only and never stored.
-- **Suggested questions** — three quick-start buttons that pre-fill common questions.
-- **Agent reasoning steps** — as the agent works, you see each step live: which tool it called, and a preview of what it found, before the final answer appears.
-- **Chat history** — conversation persists across questions within the same session. A "Clear conversation" button resets it.
+- **Provider bar** — pick a provider, a model, and paste your key. Held in component state only.
+- **Live tool steps** — as the agent works, each tool call renders inline ("🔧 Checking inventory…" → "✅ Checking inventory") before the final answer streams in.
+- **Clear conversation** — resets chat state.
 
 The agent can answer questions like:
 - Which parts are closest to a stockout?
 - What does the reorder policy say for this category?
-- How reliable is a given supplier?
-- What is the safety stock formula and how do I apply it?
-
----
+- What's the 30-day forecast for PART_014, and how much should I order?
 
 ### Tab 2 — Inventory Dashboard
 
-A visual snapshot of all parts and their current risk levels, computed from the latest date in the dataset.
-
-**KPI row (top):**
-- Total parts tracked
-- Number of CRITICAL parts (inventory will run out before a reorder can arrive)
-- Number of WARNING parts (inventory is below 2× the lead time demand)
-- Number of OK parts
-
-**Category drill-down:**
-A horizontal radio selector lets you pick a part category (Controller, Filter, Pump, Sensor, Valve). Two charts update immediately:
-- **Days of Supply** — bar chart for every part in that category, color-coded by risk, with a dashed reference line at the average lead time. Bars below that line are in stockout danger.
-- **Inventory vs Daily Demand** — grouped bars showing current stock vs average daily usage per part. This shows *why* a part is at its risk level.
-
-A summary caption shows total parts, risk counts, average lead time, and average days of supply for the selected category.
-
-**Full inventory table:**
-Every part with columns: Part ID, Category, Supplier, Region, Inventory, Average Daily Demand, Days of Supply, Lead Time, Unit Price, Risk. Risk column uses emoji indicators (🔴 🟡 🟢) that are readable on any background.
-
-**What "Region" means:** Each part is tagged with the geographic region where it is primarily deployed — North America, Europe, Asia Pacific, or Latin America. The TFT model uses region as a static covariate, meaning it can learn that demand patterns differ by region and account for that in its forecasts.
-
----
+KPI row (total parts, CRITICAL/WARNING/OK counts) computed by `lib/inventory-summary.ts`, a category selector, two Recharts bar charts (days-of-supply by risk, inventory vs. avg daily demand), and the full parts table with risk badges.
 
 ### Tab 3 — Demand Forecast
 
-Pick any part from the dropdown to see its demand history and 30-day forecast.
-
-**Part info panel (left):**
-- Category, Supplier, Region, Lead Time, Unit Price
-- Data range (first date to last date in the dataset)
-- Total number of daily records
-
-**Demand history chart (right):**
-Shows the last 90 days of actual recorded demand for the selected part. Helps you see the part's volatility and any recent spikes before looking at the forecast.
-
-**Forecast metric cards:**
-- Daily demand (median) — the average expected daily usage
-- 30-day total (p50) — best single estimate of total demand over the next 30 days
-- Lower bound (p10) — demand will probably stay above this
-- Order qty for 90% SL — the p90 upper bound; order this much to avoid stockout 90% of the time
-
-**Forecast chart:**
-Plots the 30-day forecast window with three lines — p10 (lower), p50 (median), p90 (upper) — and a shaded band between p10 and p90 showing the uncertainty range. Wider bands mean more volatile demand.
-
-**Info bar at the bottom:**
-Shows the selected part's lead time and the exact p90 order quantity with a plain-English recommendation.
-
----
+Pick a part, see its last-90-days demand history and a 30-day forecast chart (p10/p50/p90 band) fetched from `/api/forecast`. A badge shows whether the forecast came from the **TFT model** (precomputed JSON) or the **statistical baseline** (computed on the fly).
 
 ### Tab 4 — MLOps Monitor
 
-> **Local deployment only.** This tab requires a running MLflow server and is not available in the Hugging Face Spaces deployment. Run `streamlit run app.py` locally with the full stack (`requirements-local.txt`) to access it.
-
-Tracks model health in production across three sections.
-
-**Model Registry:**
-Shows all registered versions of the TFT model with their stage (Staging / Production / Archived), creation time, validation MAE, and training metadata. A dropdown lets you promote a Staging version to Production directly from the UI — this is how you control which model version serves live forecasts.
-
-**Prediction Log:**
-Every forecast generated by the agent or the Demand Forecast tab is logged here automatically. Columns show: timestamp, part queried, forecast source (TFT model vs statistical baseline), p50 daily demand, and p10/p50/p90 totals. A bar chart shows which parts have been queried most frequently.
-
-**Drift Detection:**
-Click "Run Drift Check" to compare logged predictions against actual demand from the dataset. Three metrics are computed and displayed:
-- **MAE (30-day)** vs the training baseline MAE — with a percentage degradation delta
-- **Calibration score** — what percentage of actuals fell inside the p10–p90 band (target ~80%)
-- **Drift alert** — fires if current MAE is more than 20% worse than training baseline
-
-All drift metrics are logged back to MLflow so you can trend them over time with `mlflow ui`.
+Pulls from `/api/mlops`: a drift-status card (MAE, baseline MAE, calibration %, OK/WARNING/NO-DATA), a most-queried-parts chart, and the raw prediction log — all backed by the Neon `predictions` table. Every forecast the Assistant or Forecast tab requests is logged via `logPrediction()`.
 
 ---
 
 ## Forecasting Models — TFT vs Statistical Baseline
 
-This project uses **two different forecasting models** depending on where it runs. Understanding the difference matters if you want to retrain the model or deploy the full version.
-
----
-
-### Why two models?
+This project uses **two different forecasting paths**. Understanding the difference matters if you want to retrain the model or extend it with new data.
 
 | | TFT (Temporal Fusion Transformer) | Statistical Baseline |
 |---|---|---|
-| **Used in** | Local Streamlit deployment | Hugging Face Spaces (cloud) |
-| **Requires** | PyTorch, pytorch-forecasting, GPU optional | NumPy only |
-| **Install size** | ~3 GB (torch + deps) | Already included in pandas/numpy |
+| **Where it runs** | Trained locally (`forecasting/train.py`), exported to static JSON, served by the web app | Computed on the fly, in `lib/tools/forecast.ts`, when no exported entry exists for a part |
+| **Requires** | PyTorch, pytorch-forecasting (local training only — never installed at runtime on Vercel) | Nothing extra — pure TypeScript |
 | **Accuracy** | High — learns trends, seasonality, part-specific patterns | Moderate — mean + trend extrapolation |
-| **Training needed** | Yes — run `forecasting/train.py` once | No — runs immediately from raw data |
-| **Prediction intervals** | Learned quantiles (p10/p50/p90) from data | Computed from historical std deviation |
+| **Training needed** | Yes — run `forecasting/train.py` + `forecasting/export_forecasts.py` once | No — always available |
+| **Prediction intervals** | Learned quantiles (p10/p50/p90) from data | Computed from historical standard deviation |
 
-**The cloud version uses the statistical baseline because HF Spaces is a free CPU container.** Installing PyTorch there would take 10+ minutes and exceed the memory limit. The statistical baseline installs in seconds and produces reasonable forecasts for the demo.
-
-The local version automatically uses the TFT model if a trained checkpoint exists at `forecasting/saved_model/`. If no checkpoint is found, it falls back to the statistical baseline — so the app always works even before training.
-
----
+**Why precompute instead of running the model on Vercel?** Vercel functions are ephemeral and don't ship PyTorch — training and inference happen locally, and only the resulting numbers (`lib/data/forecasts.json`) travel with the deploy. This keeps the production app dependency-free while still serving real model output, not just the baseline.
 
 ### How the statistical baseline works
 
-The baseline is implemented in `agent/agent.py` → `_forecast_statistical()`:
+Implemented in `lib/tools/forecast.ts` → `getForecast()`:
 
 1. Takes the last 60 days of demand for the selected part
 2. Computes the mean (`avg`) and standard deviation (`std`)
-3. Adds a small upward trend (`+5%` over 30 days) to the median forecast
-4. Computes prediction intervals using `±1.65σ` (which covers ~90% of a normal distribution)
+3. Adds a small upward trend (~2.5%) to the median forecast
+4. Computes prediction intervals using `±1.65σ` (covers ~90% of a normal distribution)
 
 ```
-p50 = avg + small trend
-p10 = p50 - 1.65 × std    (lower bound)
-p90 = p50 + 1.65 × std    (upper bound — use for safety stock orders)
+p50Daily = avg × 1.025
+p50 = p50Daily × 30
+p10 = (p50Daily − 1.65 × std) × 30
+p90 = (p50Daily + 1.65 × std) × 30
 ```
 
-This is a well-known statistical method (essentially an auto-regressive mean model with Gaussian uncertainty). It works well for parts with stable, low-volatility demand. For parts with strong seasonality or sudden spikes, the TFT model is significantly more accurate.
-
----
+This is a well-known statistical method — an auto-regressive mean model with Gaussian uncertainty. It works well for parts with stable, low-volatility demand. For parts with strong seasonality or sudden spikes, the TFT model is significantly more accurate.
 
 ### How the TFT model works
 
-The TFT (Temporal Fusion Transformer) is implemented in `forecasting/model.py` and trained via `forecasting/train.py`.
-
-It improves on the statistical baseline in three specific ways:
+Implemented in `forecasting/model.py`, trained via `forecasting/train.py`. It improves on the statistical baseline in three ways:
 
 **1. It separates inputs by type**
 
@@ -385,49 +262,16 @@ Like GPT/BERT, TFT uses attention to look back across the entire 90-day window a
 
 The result: TFT is much more accurate for parts with strong seasonality, supplier-specific patterns, or irregular spikes — which is exactly what real supply chain data looks like.
 
----
+### How to retrain the TFT model and update the web app
 
-### How to retrain the TFT model
-
-> Do this locally. Training requires `requirements-local.txt` and takes 5–20 minutes depending on your CPU/GPU.
-
-**Step 1 — Make sure your data is present**
 ```bash
-python -m data.generate_data
-```
-This creates `data/supply_chain_data.csv` with 73,050 rows (50 parts × 4 years of daily demand).
-
-**Step 2 — Run training**
-```bash
-python -m forecasting.train
+python -m data.generate_data            # ensure data/supply_chain_data.csv exists
+python -m forecasting.train              # trains, saves checkpoint to forecasting/saved_model/, logs to MLflow
+mlflow ui                                # inspect loss curves, hyperparameters at http://localhost:5000
+python -m forecasting.export_forecasts   # writes lib/data/forecasts.json from the trained checkpoint
 ```
 
-This will:
-- Load and prepare the dataset
-- Build the `TimeSeriesDataSet` with all input types (static, past, future)
-- Train TFT with hidden size 64, 4 attention heads, 10% dropout
-- Use `EarlyStopping` — stops automatically when validation loss plateaus
-- Save the best checkpoint to `forecasting/saved_model/` (e.g. `best-epoch=12-val_loss=0.48.ckpt`)
-- Log all hyperparameters, metrics, and the model artifact to MLflow
-
-**Step 3 — Inspect training results**
-```bash
-mlflow ui
-# open http://localhost:5000
-```
-You'll see a full dashboard: loss curves per epoch, hyperparameters, and a comparison table if you've run multiple training experiments.
-
-**Step 4 — Run the app — it picks up the new model automatically**
-```bash
-streamlit run app.py
-```
-The `get_demand_forecast()` function in `agent/agent.py` checks for `.ckpt` files in `forecasting/saved_model/` at startup. If one is found, it loads it and uses the TFT for all forecasts. You'll see `source: TFT model` instead of `source: statistical baseline` in the prediction log.
-
-**Step 5 — Promote the new version in the MLOps Monitor** *(optional)*
-
-In the Streamlit app, go to the **MLOps Monitor** tab → **Model Registry** → select the new version → click **Promote to Production**. This is how you track which model version is serving live traffic.
-
----
+Commit the updated `lib/data/forecasts.json` and redeploy — the web app will pick it up on the next `getForecast()` call, no code changes needed.
 
 ### Retraining with your own data
 
@@ -443,366 +287,109 @@ date,part_id,category,supplier,region,demand,inventory,lead_time_days,price_usd
 
 Required columns: `date` (daily), `part_id`, `category`, `supplier`, `region`, `demand` (units/day), `inventory`, `lead_time_days`, `price_usd`.
 
-2. **Place your file** at `data/supply_chain_data.csv` (overwrite the synthetic one)
-
-3. **Rebuild the RAG knowledge base** if your policy documents have changed:
-```bash
-python -m rag.ingest
-```
-
-4. **Retrain the model**:
-```bash
-python -m forecasting.train
-```
-
-5. **Run the app** — everything else (agent, dashboard, forecast tab) will automatically use your data.
+2. **Place your file** at `data/supply_chain_data.csv` (overwrite the synthetic one).
+3. **Rebuild the web app's data files**: `npm run build:data` regenerates `lib/data/parts.json` from the CSV.
+4. **Rebuild the RAG knowledge base** if your policy documents changed: `python -m rag.ingest`, then re-run the extractor noted in `scripts/build-docs.mjs` to refresh `lib/data/docs.json`.
+5. **Retrain the model**: `python -m forecasting.train` then `python -m forecasting.export_forecasts`.
+6. **Redeploy** — the agent, dashboard, and forecast tab all pick up the new data automatically.
 
 ---
 
-## File-by-File Explanation
+## LLM Providers — Bring Your Own Key
 
----
-
-### `data/generate_data.py`
-
-Creates a synthetic supply chain dataset of 50 spare parts with 4 years of daily demand history (73,050 rows).
-
-Real supply chain data from companies is confidential, so generating synthetic data with the same statistical patterns is standard practice. Each part's demand has three layers:
-
-- **Slow upward trend** — demand grows ~20% over 4 years
-- **Yearly seasonality** — peaks around October, when factories do end-of-year maintenance
-- **Random spikes** — ~5 times per year, simulating emergency orders from equipment failures
-
-Each part also has static attributes (category, supplier, region, lead time, price) that never change. These are critical for TFT — it has a dedicated channel to learn from them.
-
-<br>
-
----
-
-### `forecasting/model.py`
-
-Defines how to prepare the data and configure the TFT model.
-
-**Why TFT and not LSTM?**
-
-An LSTM reads a sequence one step at a time and passes a hidden state forward. It works, but its memory fades over long sequences and it treats all inputs the same way.
-
-TFT improves on this in four specific ways:
-
-**1. Separates inputs into types**
-
-| Input type | Example | How TFT uses it |
-|---|---|---|
-| Static (never changes) | part category, supplier | Learns "Valves from SupplierC behave like X" |
-| Past unknown | demand, inventory | Learns from historical patterns |
-| Future known | month, quarter | Uses calendar to predict seasonality in advance |
-
-An LSTM mixes all of these together. TFT processes each type through a different path.
-
-**2. Variable Selection Network**
-
-Before forecasting, TFT learns which input features actually matter. If `day_of_week` turns out to be useless for a particular part type, TFT learns to ignore it. This is automatic feature selection built into the architecture.
-
-**3. Self-attention over the full history**
-
-Like in GPT/BERT, TFT uses attention to look back across the entire 90-day window and decide which past time steps are most relevant right now. An LSTM's memory fades — TFT can jump back and find a relevant spike from 2 months ago.
-
-**4. Prediction intervals, not just one number**
-
-TFT outputs three quantiles:
-- **p10** — lower bound (demand will probably be above this)
-- **p50** — median, the best single guess
-- **p90** — upper bound (use this for safety stock calculations)
-
-This is far more useful for inventory decisions than a single point estimate.
-
-`load_and_prepare()` casts columns to float32 and adds the integer time index and calendar features TFT needs.
-
-`build_dataset()` wraps everything in `TimeSeriesDataSet` — pytorch-forecasting's format that handles normalization per part, sliding window creation, and input type separation automatically.
-
-`build_model()` creates TFT with hidden size 64, 4 attention heads, 10% dropout, and QuantileLoss for the three quantiles.
-
-<br>
-
----
-
-### `forecasting/train.py`
-
-Trains the model and logs everything to MLflow.
-
-**Lightning** handles the entire training loop. There is no `for epoch in range(...)` written anywhere. You configure a `Trainer`, call `trainer.fit()`, and Lightning handles the forward pass, loss computation, backpropagation, optimizer steps, GPU placement, and validation automatically.
-
-**Three callbacks** run during training:
-
-- `EarlyStopping` — stops training if validation loss doesn't improve for 5 consecutive epochs. Prevents wasting hours of compute on a model that has already peaked.
-- `ModelCheckpoint` — saves the model weights every time validation loss hits a new low. Even if the model gets worse in later epochs, you always keep the best version.
-- `LearningRateMonitor` — logs the learning rate at each epoch so you can verify in MLflow that the scheduler is reducing it correctly.
-
-**MLflow** wraps the entire training run. Every hyperparameter, every metric at every epoch, and the final model file are saved automatically to the `mlruns/` folder. Run `mlflow ui` after training to see a full dashboard. If you train multiple times with different settings, MLflow lets you compare all runs side by side.
-
-<br>
-
----
-
-### `rag/ingest.py`
-
-Builds the knowledge base — converts 10 supply chain documents into embedding vectors and stores them in ChromaDB.
-
-**Why RAG?**
-
-Claude is trained on general internet data. It knows nothing about your company's reorder policies, your supplier reliability history, or your safety stock formula. RAG (Retrieval-Augmented Generation) gives Claude that knowledge by letting it search a database of your own documents before answering.
-
-**How embeddings work**
-
-An embedding model converts text into a list of numbers that captures meaning. Sentences with similar meanings get similar numbers, sentences with different meanings get different numbers.
-
-```
-"inventory is running low"  → [0.21, -0.45, 0.87, ...]
-"parts are almost out"      → [0.19, -0.43, 0.85, ...]  ← similar meaning, similar vector
-"the weather is sunny"      → [-0.62, 0.11, -0.34, ...] ← unrelated, very different vector
-```
-
-The model used (`all-MiniLM-L6-v2`) produces 384-dimensional vectors. It runs completely locally — no API key needed, downloads once and is cached.
-
-**ChromaDB** stores those vectors on disk. It's a database built specifically for searching vectors. When you search for "reorder policy for valves", it converts that query to a vector and finds the stored vectors closest to it using cosine similarity.
-
-**Why ChromaDB and not MongoDB?**
-
-This comes up often so it's worth explaining clearly. MongoDB is a document database — it's excellent at exact lookups like "give me all parts where supplier equals SupplierC" or "find all orders from 2023". That's filtering by value, and MongoDB handles it reliably.
-
-But MongoDB cannot answer "find me documents whose *meaning* is similar to this question." It has no concept of semantic similarity. You could store embedding vectors inside MongoDB documents, but you'd have to load all of them into memory and compute similarity yourself — there's no built-in search index for that.
-
-ChromaDB is built specifically for this. It stores vectors with a built-in HNSW index (Hierarchical Navigable Small World — a nearest-neighbor search algorithm) that makes similarity search fast even across thousands of documents. It also handles the embedding step, storage, and retrieval in one place.
-
-Short version: MongoDB is the right tool for structured queries. ChromaDB is the right tool for semantic search. This project needs semantic search, so ChromaDB is the correct choice.
-
-The 10 documents in the knowledge base cover: reorder policies, supplier profiles (SupplierA through D), past stockout incident reports, safety stock calculation formulas, and demand forecasting guidelines.
-
-<br>
-
----
-
-### `rag/retriever.py` (local) and `rag/retriever_cloud.py` (cloud)
-
-The search half of RAG. Given a user's question, finds the most relevant documents from the knowledge base. Two implementations with identical public APIs — `agent.py` selects between them automatically at import time.
-
-**`retriever.py` — local (ChromaDB + sentence-transformers):**
-1. Take the question as plain text
-2. Convert it to a vector using the same embedding model used during ingest
-3. Ask ChromaDB: find the stored vectors closest to this one using cosine similarity
-4. Return the top 3 matches — results below 0.3 similarity are filtered out
-
-**`retriever_cloud.py` — cloud (numpy only, no heavy dependencies):**
-1. Take the question as plain text
-2. Tokenize and filter stopwords
-3. Score each document by keyword overlap, weighted by term frequency
-4. Return the top 3 matches from `rag/embeddings.npz` (pre-built, committed to repo)
-
-The cloud retriever is less semantically precise than the ChromaDB version, but requires only numpy and installs in seconds. For the 10-document knowledge base in this project the quality difference is minimal in practice.
-
-The retrieved document texts become the "context" that gets passed to Claude alongside the user's question.
-
-<br>
-
----
-
-### `agent/agent.py`
-
-The brain of the project. A multi-provider AI agent that decides which tools to call, calls them, reads the results, and synthesizes a final answer.
-
-**Multi-provider support:**
-This file was originally built for Anthropic Claude only. It was later extended to support three providers using a thin abstraction layer — no third-party library required:
-
-| Provider | SDK used | Tool call format |
-|---|---|---|
-| Anthropic | `anthropic` | Native tool use blocks |
-| OpenAI | `openai` | `tools` + `tool_choice` |
-| Groq | `openai` (same SDK, different `base_url`) | Same as OpenAI |
-
-The user selects their provider and model in the app sidebar. The agent loop works identically regardless of which provider is active.
-
-**What makes it an agent and not just a chatbot**
-
-A chatbot takes your question and answers immediately from memory.
-
-An agent follows a **ReAct loop** (Reason → Act → Observe → Reason → ...):
-
-1. **Reason** — what do I need to answer this?
-2. **Act** — call a tool to get real data
-3. **Observe** — read what the tool returned
-4. **Reason again** — is this enough? do I need more?
-5. Repeat until ready
-6. **Answer** — synthesize everything into a response
-
-Claude natively supports tool use. Tools are defined as JSON schemas describing what each tool does and what inputs it accepts. Claude reads those descriptions and decides on its own which tools to call and in what order. The logic is not hardcoded.
-
-**Three tools:**
-
-`get_inventory_status` — reads the CSV, computes days of supply remaining for each part (current inventory ÷ average daily demand over last 30 days), and flags parts as:
-- `CRITICAL` — will run out before the reorder can arrive
-- `WARNING` — getting close, reorder should be placed soon
-- `OK` — sufficient stock
-
-`get_demand_forecast` — runs the trained TFT model to generate a 30-day forecast with p10/p50/p90 bounds. Falls back to a statistical baseline (mean + trend + standard deviation bounds) if the model hasn't been trained yet, so the agent is always usable.
-
-`search_knowledge_base` — calls the RAG retriever to find relevant policies, supplier profiles, or incident reports from ChromaDB.
-
-<br>
-
----
-
-### `mlops/monitor.py`
-
-Handles everything MLOps-related that happens after training.
-
-**Prediction logging** — `log_prediction()` is called automatically every time `get_demand_forecast()` runs. It logs the part ID, p10/p50/p90 totals, daily median, forecast source, and timestamp to a dedicated MLflow experiment called `prediction-log`. This creates a full audit trail of what the model served and when.
-
-**Drift detection** — `compute_drift_metrics()` pulls the prediction log, matches each logged prediction to the actual demand from the dataset, and computes:
-- MAE over the last 30 days of predictions
-- Calibration score: what % of actuals fell inside the p10–p90 band
-- Degradation percentage vs training baseline
-- A drift alert flag if degradation exceeds 20%
-
-All computed drift metrics are logged back to MLflow so they can be trended over time.
-
-**Model registry** — `get_registered_model_info()` queries the MLflow Model Registry for all versions of `supply-chain-tft`. `promote_to_production()` transitions a version from Staging to Production, archiving the previous Production version.
-
-<br>
-
----
-
-### `gradio_app.py`
-
-The Gradio web application — the cloud entry point, deployed on Hugging Face Spaces. Three functional tabs:
-
-**AI Assistant** — a chat interface with streaming tool-step output. Provider, model, and API key are selected from a shared row at the top of the page. Three quick-start buttons pre-fill common questions.
-
-**Inventory Dashboard** — KPI summary, a category radio selector, two Plotly charts (days of supply + inventory vs demand), and the full inventory table.
-
-**Demand Forecast** — part dropdown, historical demand chart, 30-day forecast chart with p10/p50/p90 quantile bounds, and a metadata summary table.
-
-Uses only the packages in `requirements.txt` (no torch, no chromadb, no mlflow). The statistical forecaster and keyword RAG retriever handle everything on the free CPU tier.
-
----
-
-### `app.py`
-
-The Streamlit web application — local only, requires the full stack from `requirements-local.txt`. Adds a fourth tab not available in the cloud:
-
-**AI Assistant** — same as Gradio, plus dynamic quick-start buttons built from actual supplier and category names in the dataset.
-
-**Inventory Dashboard** — same as Gradio.
-
-**Demand Forecast** — same as Gradio, plus part metadata panel and lead time recommendation info box.
-
-**MLOps Monitor** — model registry with version promotion, prediction audit log, and drift detection with MAE and calibration metrics. Requires a running MLflow server (`mlflow ui`).
-
-Streamlit is pure Python — no HTML, CSS, or JavaScript needed. Every time a user interacts with something, Streamlit re-runs the script and re-renders the UI.
-
-<br>
-
----
-
-### `notebooks/walkthrough.ipynb`
-
-A guided tutorial notebook that runs through every component step by step with explanations. Intended for students and anyone reading the code for the first time.
-
-**To use:** Open in Jupyter, select the `Supply Chain Agent (Python 3.12)` kernel, run cells top to bottom.
-
-Covers: dataset exploration with demand pattern plots, TFT dataset construction, model architecture inspection, RAG ingestion and retrieval testing, individual tool testing, the full agent loop, and MLflow run inspection.
-
----
-
-## LLM Provider — Bring Your Own Key
-
-This project was originally built with **Anthropic Claude**. It now supports three providers so users can choose whichever they have access to.
+The web app supports four providers so you can use whichever key you have. Model choices come from `lib/providers.ts`:
 
 | Provider | Models | Key format | Cost |
 |---|---|---|---|
-| **Anthropic** (original) | claude-opus-4-5, claude-sonnet-4-5, claude-haiku-3-5 | `sk-ant-...` | Paid |
-| **OpenAI** | gpt-4o, gpt-4o-mini, gpt-4-turbo | `sk-...` | Paid |
-| **Groq** | llama3-70b, llama3-8b, mixtral-8x7b | `gsk_...` | Free tier |
+| **Anthropic** | `claude-opus-4-8`, `claude-sonnet-5`, `claude-haiku-4-5` | `sk-ant-...` | Paid |
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini` | `sk-...` | Paid |
+| **Groq** (default) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` | `gsk_...` | Free tier |
+| **Google** | `gemini-2.0-flash`, `gemini-1.5-pro` | `AIza...` | Paid |
 
-The provider row at the top of the app lets you select a provider, pick a model, and paste your key. The key is held in memory only for that browser session and is never stored, logged, or shared.
+The provider bar at the top of the app lets you pick a provider, a model, and paste your key. The key lives in React state for that browser tab only — it's sent to `/api/chat` on each request and is never written to a database, log, or file.
 
----
-
-**Why Groq is a good free option:**
-
-Groq offers a generous free API tier with no credit card required. It runs open-source models (LLaMA 3, Mixtral) on custom hardware at very fast speeds. The agent works well with `llama3-70b-8192` — a good balance of quality and speed for free use.
-
----
+**Why Groq is the default:** it offers a generous free API tier with no credit card required, running open-source Llama models at very fast inference speeds — the easiest way to try the app with zero cost.
 
 **How to get each key:**
-
 - **Anthropic:** [console.anthropic.com](https://console.anthropic.com/) → API Keys
 - **OpenAI:** [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 - **Groq (free):** [console.groq.com/keys](https://console.groq.com/keys)
+- **Google:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
----
-
-**For local development:**
-
-To avoid typing your key on every restart, add it to the `.env` file at the project root:
-
-```
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-# or
-OPENAI_API_KEY=sk-your-key-here
-# or
-GROQ_API_KEY=gsk_your-key-here
-```
-
-The `.env` file is in `.gitignore` and will never be committed to GitHub.
+Provider/model IDs move fast — check `lib/providers.ts` for the current list, and each vendor's docs if a model ID stops working.
 
 ---
 
 ## MLOps — Beyond Basic Training
 
-This project implements the full MLOps lifecycle, not just training.
+This project implements the MLOps lifecycle end to end, not just training. Two implementations exist side by side: the original Python/MLflow stack (local training) and a TypeScript/Neon port (production, in the web app).
 
----
+### Model Registry (local, Python/MLflow)
 
-### Model Registry
-
-After training, the TFT model is automatically registered in MLflow's Model Registry under the name `supply-chain-tft`. Each training run creates a new version, which starts in **Staging**. You can promote it to **Production** from the MLOps Monitor tab in the app.
-
-This mirrors how real ML teams manage model releases — a model doesn't serve production traffic until it has been explicitly promoted.
+After training, the TFT model is registered in MLflow's Model Registry under `supply-chain-tft`. Each training run creates a new version, starting in **Staging**; promote it to **Production** from the app or the MLflow UI.
 
 ```
 Training run → v1 (Staging) → review → v1 (Production)
 New training  → v2 (Staging) → review → v2 (Production), v1 (Archived)
 ```
 
-Each registered version is tagged with: validation MAE, epochs trained, and number of parts.
+### Prediction Logging (production, web app)
+
+Every forecast the Assistant or Forecast tab requests calls `logPrediction()` (`lib/db/log.ts`), writing part ID, p10/p50/p90 totals, daily median, and forecast source to the Neon `predictions` table. This is a real audit trail: "what did the model actually predict on a given day for PART_007?" — visible in the MLOps tab's prediction log.
+
+### Drift Detection (production, web app)
+
+`computeDrift()` (`lib/db/drift.ts`, a TypeScript port of the original `mlops/monitor.py` logic) compares logged predictions against actual average demand per part and computes:
+
+- **MAE** — mean absolute error of `p50Daily` vs. actual average daily demand
+- **Calibration** — the % of actuals falling inside the predicted p10–p90 band (target ~80%+)
+- **Drift flag** — fires when MAE is more than 1.5× the baseline (predict-the-global-mean) MAE
+
+Requires at least 3 logged predictions; otherwise the MLOps tab reports `NO-DATA`.
 
 ---
 
-### Prediction Logging
+## File-by-File Explanation (Python ML stack)
 
-Every forecast generated — whether from the AI Assistant agent or the Demand Forecast tab — is automatically logged to MLflow's `prediction-log` experiment. Each log entry records:
-- Which part was queried
-- The p10, p50, p90 forecast values
-- The timestamp
-- Whether the TFT model or the statistical baseline served the prediction
+### `data/generate_data.py`
 
-This creates a full audit trail. In production, this is how you answer "what did the model actually predict on March 15th for PART_007?"
+Creates a synthetic supply chain dataset of 50 spare parts with 4 years of daily demand history (73,050 rows). Real supply chain data from companies is confidential, so generating synthetic data with the same statistical patterns is standard practice. Each part's demand has three layers: a slow upward trend (~20% over 4 years), yearly seasonality (peaks around October, factory maintenance season), and random spikes (~5/year, simulating emergency orders). Static attributes (category, supplier, region, lead time, price) never change — TFT has a dedicated channel to learn from them.
 
----
+### `forecasting/model.py`
 
-### Drift Detection
+Defines how to prepare the data and configure the TFT model. `load_and_prepare()` casts columns to float32 and adds the integer time index and calendar features TFT needs. `build_dataset()` wraps everything in `TimeSeriesDataSet` — pytorch-forecasting's format that handles per-part normalization, sliding-window creation, and input-type separation. `build_model()` creates TFT with hidden size 64, 4 attention heads, 10% dropout, and QuantileLoss for the three quantiles.
 
-The **MLOps Monitor** tab includes a drift detection check that compares logged predictions against actual demand values from the dataset.
+### `forecasting/train.py`
 
-Three metrics are computed:
+Trains the model and logs everything to MLflow. Lightning handles the training loop — no `for epoch in range(...)` anywhere; you configure a `Trainer`, call `trainer.fit()`, and Lightning handles the forward pass, loss, backprop, optimizer steps, and validation. Three callbacks run: `EarlyStopping` (stops if validation loss plateaus for 5 epochs), `ModelCheckpoint` (saves the best weights), `LearningRateMonitor` (logs the LR schedule). MLflow records every hyperparameter, every epoch's metrics, and the final model artifact.
 
-**MAE (Mean Absolute Error)** — the average prediction error in units/day. Compared against the baseline MAE from training. If the current MAE is more than 20% worse, a drift alert is triggered.
+### `forecasting/export_forecasts.py`
 
-**Calibration score** — what percentage of actual demand values fell inside the predicted p10–p90 band. Should be around 80%. If it drops significantly, the model's uncertainty estimates have become unreliable.
+Loads the best checkpoint in `forecasting/saved_model/`, runs the TFT for every part in the dataset, and writes `lib/data/forecasts.json` — the file the web app reads as real "TFT model" forecasts. This is the bridge between the Python training stack and the Next.js app: no live model server, just a static JSON handoff.
 
-**Drift alert** — a binary flag that fires when degradation exceeds the threshold. Logged back to MLflow so you can trend it over time with `mlflow ui`.
+### `rag/ingest.py`
 
-To run a drift check: open the MLOps Monitor tab → click **Run Drift Check**.
+Builds the knowledge base — converts supply chain documents into embedding vectors and stores them in ChromaDB. An LLM knows nothing about a company's own reorder policies, supplier reliability history, or safety-stock formula; RAG (Retrieval-Augmented Generation) gives it that knowledge by searching a document store first. The embedding model (`all-MiniLM-L6-v2`) produces 384-dimensional vectors and runs entirely locally — no API key needed. ChromaDB indexes those vectors with HNSW (Hierarchical Navigable Small World) for fast nearest-neighbor search — a different job than a document database like MongoDB, which excels at exact-value filtering but has no built-in concept of semantic similarity.
+
+### `rag/retriever.py`
+
+The local search half of RAG: embeds the question with the same model used at ingest time, asks ChromaDB for the nearest stored vectors by cosine similarity, and returns the top 3 matches (filtering out anything below 0.3 similarity). The web app's equivalent, `lib/tools/knowledge.ts`, does keyword/TF-overlap scoring over `lib/data/docs.json` instead — no embeddings at runtime, which keeps the Vercel deploy dependency-free. For this project's small (10-document) knowledge base the quality difference is minor in practice.
+
+### `agent/agent.py`
+
+The original multi-provider Python agent — a full ReAct loop (Reason → Act → Observe → Reason → ... → Answer) over three tools (inventory, forecast, knowledge search), runnable via the Streamlit app (`app.py`) or the notebook. The Next.js `app/api/chat/route.ts` is the production reimplementation of this same loop on top of the Vercel AI SDK, with the same three tools and BYOK across four providers.
+
+### `mlops/monitor.py`
+
+The original MLflow-backed MLOps implementation: prediction logging (`log_prediction()`), drift detection (`compute_drift_metrics()` — MAE, calibration, degradation vs. baseline), and model registry helpers (`get_registered_model_info()`, `promote_to_production()`). `lib/db/drift.ts` is the TypeScript port of the drift logic used by the production MLOps tab.
+
+### `notebooks/walkthrough.ipynb`
+
+A guided tutorial notebook that runs through every Python component step by step: dataset exploration, TFT dataset construction, model architecture inspection, RAG ingestion and retrieval testing, individual tool testing, the full agent loop, and MLflow run inspection. Intended for anyone reading the code for the first time.
+
+### `app.py`
+
+The original Streamlit web application — an optional local alternative to the Next.js app, using the same Python agent and the full local stack (`requirements-local.txt`). Adds a Model Registry / promotion UI directly wired to a running MLflow server, which the production web app doesn't have (Neon logs predictions and computes drift, but doesn't manage MLflow model-version promotion).
 
 ---
 
@@ -810,13 +397,13 @@ To run a drift check: open the MLOps Monitor tab → click **Run Drift Check**.
 
 | Skill Area | Implementation |
 |---|---|
-| Agentic AI, reasoning workflows | `agent/agent.py` — full ReAct loop, live reasoning steps in UI |
-| RAG, embedding-based search systems | ChromaDB + sentence-transformers (local); numpy keyword retriever (cloud) |
-| LLM projects, GenAI applications | Multi-provider: Anthropic, OpenAI, Groq |
-| Demand forecast, material forecast | TFT (pytorch-forecasting) on 50-part supply chain time series |
-| Deep learning frameworks | PyTorch + Lightning — TFT training with GPU support |
-| MLOps — experiment tracking | MLflow logs all hyperparameters, metrics, and model artifacts |
-| MLOps — model versioning | MLflow Model Registry with Staging → Production promotion |
-| MLOps — prediction monitoring | Every forecast logged; drift detection with MAE + calibration score |
-| AI-driven prototypes for stakeholders | Gradio app deployed on Hugging Face Spaces; local Streamlit app with full MLOps |
-| Data mining, data processing | Pandas pipeline, synthetic multivariate time-series generation |
+| Full-stack TypeScript / Next.js | App Router, Vercel AI SDK, shadcn/ui, Recharts, Drizzle |
+| Agentic AI, tool-calling | `app/api/chat/route.ts` (production) and `agent/agent.py` (original ReAct loop) |
+| Multi-provider LLM integration, BYOK | Anthropic, OpenAI, Groq, Google via one AI SDK interface |
+| RAG, embedding-based search | ChromaDB + sentence-transformers (training/local); TF-keyword search (production) |
+| Demand forecasting, deep learning | Temporal Fusion Transformer (pytorch-forecasting) on a 50-part time series |
+| Serverless data persistence | Neon Postgres (HTTP driver) + Drizzle, `DATABASE_URL`-optional design |
+| MLOps — experiment tracking & versioning | MLflow logging, Model Registry with Staging → Production promotion |
+| MLOps — production monitoring | Prediction logging + drift detection, ported to run on the deployed app |
+| CI / testing | GitHub Actions (lint, typecheck, test, data build), Vitest unit tests |
+| Data engineering | Pandas synthetic time-series generation, CSV → JSON build pipeline |
