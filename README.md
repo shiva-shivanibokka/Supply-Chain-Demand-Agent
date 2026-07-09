@@ -102,7 +102,7 @@ Supply-Chain-Demand-Agent/
 │
 ├── data/
 │   ├── generate_data.py             ← synthetic dataset generator
-│   └── supply_chain_data.csv        ← 73,050 rows, 50 parts × 4 years
+│   └── supply_chain_data.csv        ← ~292,000 rows, 200 parts × 4 years
 ├── forecasting/
 │   ├── model.py                     ← TFT configuration + dataset builder
 │   ├── train.py                     ← training loop + MLflow tracking
@@ -353,7 +353,7 @@ Requires at least 3 logged predictions; otherwise the MLOps tab reports `NO-DATA
 
 ### `data/generate_data.py`
 
-Creates a synthetic supply chain dataset of 50 spare parts with 4 years of daily demand history (73,050 rows). Real supply chain data from companies is confidential, so generating synthetic data with the same statistical patterns is standard practice. Each part's demand has three layers: a slow upward trend (~20% over 4 years), yearly seasonality (peaks around October, factory maintenance season), and random spikes (~5/year, simulating emergency orders). Static attributes (category, supplier, region, lead time, price) never change — TFT has a dedicated channel to learn from them.
+Creates a synthetic supply chain dataset of 200 spare parts with 4 years of daily demand history (~292,000 rows). Real supply chain data from companies is confidential, so generating synthetic data with the same statistical patterns is standard practice. Each part's demand has three layers: a slow upward trend (~20% over 4 years), yearly seasonality (peaks around October, factory maintenance season), and random spikes (~5/year, simulating emergency orders). Static attributes (category, supplier, region, lead time, price) never change — TFT has a dedicated channel to learn from them.
 
 ### `forecasting/model.py`
 

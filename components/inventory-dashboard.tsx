@@ -62,6 +62,8 @@ const tooltipStyle = {
 const summary = summarizeInventory();
 const CATEGORIES = Array.from(new Set(summary.parts.map((p) => p.category))).sort();
 const CATEGORY_OPTIONS = ["All", ...CATEGORIES];
+// Charts stay legible at any scale by showing only the most at-risk slice; the table lists all.
+const CHART_LIMIT = 20;
 
 export function InventoryDashboard() {
   const [category, setCategory] = useState<string>("All");
@@ -72,6 +74,11 @@ export function InventoryDashboard() {
         ? summary.parts
         : summary.parts.filter((p) => p.category === category),
     [category],
+  );
+
+  const chartData = useMemo(
+    () => [...filtered].sort((a, b) => a.daysOfSupply - b.daysOfSupply).slice(0, CHART_LIMIT),
+    [filtered],
   );
 
   const avgLeadTime = useMemo(() => {
@@ -108,11 +115,13 @@ export function InventoryDashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Days of supply by risk — {category}</CardTitle>
+            <CardTitle>
+              Days of supply — {chartData.length} most at-risk in {category}
+            </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="part_id"
@@ -146,7 +155,7 @@ export function InventoryDashboard() {
                   }}
                 />
                 <Bar dataKey="daysOfSupply" name="Days of supply" radius={[4, 4, 0, 0]}>
-                  {filtered.map((p) => (
+                  {chartData.map((p) => (
                     <Cell key={p.part_id} fill={RISK_COLOR[p.risk]} />
                   ))}
                 </Bar>
@@ -157,11 +166,13 @@ export function InventoryDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Inventory vs. avg daily demand — {category}</CardTitle>
+            <CardTitle>
+              Inventory vs. demand — {chartData.length} most at-risk in {category}
+            </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="part_id"

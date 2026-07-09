@@ -41,7 +41,7 @@ np.random.seed(42)
 # CONFIG - change these if you want more/fewer parts or a longer date range
 # --------------------------------------------------------------------------
 
-NUM_PARTS = 50  # number of unique spare parts
+NUM_PARTS = 200  # number of unique spare parts
 START_DATE = "2021-01-01"
 END_DATE = "2024-12-31"
 
@@ -103,7 +103,7 @@ def generate_demand_signal(n_days: int, base: float, part_idx: int) -> np.ndarra
 
 def generate_dataset() -> pd.DataFrame:
     """
-    Builds the full dataset: 50 parts × ~1461 days = ~73,000 rows.
+    Builds the full dataset: 200 parts × ~1461 days = ~292,000 rows.
 
     Each part gets:
       - A random category, supplier, and region (static - never changes)
