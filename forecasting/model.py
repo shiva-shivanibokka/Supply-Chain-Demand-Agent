@@ -50,6 +50,7 @@ The p10 tells you the floor. This is far more useful than a single number.
 -----------------------------------------------------------------------
 """
 
+import os
 import pandas as pd
 import numpy as np
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
@@ -88,6 +89,13 @@ def load_and_prepare(csv_path: str) -> pd.DataFrame:
 
     df = pd.read_csv(csv_path, parse_dates=["date"])
     df = df.sort_values(["part_id", "date"]).reset_index(drop=True)
+
+    # Optional: limit the number of parts for a fast CPU retrain in CI. Both
+    # training and forecast export call this function, so they stay consistent.
+    sample = os.environ.get("RETRAIN_SAMPLE_PARTS")
+    if sample:
+        keep = sorted(df["part_id"].unique())[: int(sample)]
+        df = df[df["part_id"].isin(keep)].reset_index(drop=True)
 
     # TFT's normalizer requires the target and all real-valued columns to be
     # float32. Our CSV stores demand and inventory as integers - casting them

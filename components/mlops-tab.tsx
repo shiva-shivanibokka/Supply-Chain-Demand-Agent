@@ -49,6 +49,23 @@ const tooltipStyle = {
 export function MlopsTab() {
   const [data, setData] = useState<MlopsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retraining, setRetraining] = useState(false);
+  const [retrainMsg, setRetrainMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const triggerRetrain = useCallback(() => {
+    setRetraining(true);
+    setRetrainMsg(null);
+    fetch("/api/retrain", { method: "POST" })
+      .then(async (res) => ({ ok: res.ok, body: await res.json() }))
+      .then(({ ok, body }) => setRetrainMsg({ ok, text: ok ? body.message : body.error }))
+      .catch((err) =>
+        setRetrainMsg({
+          ok: false,
+          text: err instanceof Error ? err.message : "Failed to dispatch retraining",
+        }),
+      )
+      .finally(() => setRetraining(false));
+  }, []);
 
   const refresh = useCallback(() => {
     setError(null);
@@ -182,6 +199,43 @@ export function MlopsTab() {
           )}
         </>
       )}
+
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold text-foreground">
+            Automated retraining pipeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            When drift appears, this fires a GitHub Actions pipeline that retrains the TFT,
+            exports fresh forecasts, and opens a pull request — merging it redeploys the new
+            model. It closes the loop: monitor → retrain → review → ship.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={triggerRetrain} disabled={retraining}>
+              {retraining ? "Dispatching…" : "Trigger retraining"}
+            </Button>
+            {retrainMsg && (
+              <span className={retrainMsg.ok ? "text-[#0ca30c]" : "text-destructive"}>
+                {retrainMsg.text}
+              </span>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed">
+            <strong className="text-foreground">Why CPU + GitHub Actions?</strong> Vercel&rsquo;s
+            serverless functions have no GPU and can&rsquo;t run PyTorch, so training can&rsquo;t
+            happen in the app itself. On the free tier we retrain on GitHub&rsquo;s CPU runners —
+            which are slow, so the CI run is scoped to fewer parts/epochs and gated behind a PR
+            (a scoped CPU model shouldn&rsquo;t silently replace the full GPU-trained one).
+            <br />
+            <strong className="text-foreground">With a paid tier</strong> we&rsquo;d swap in GPU
+            runners or a managed training service (SageMaker, Vertex AI, Modal, Replicate) for
+            full-speed retraining, auto-evaluate the new model against the baseline, and
+            canary-promote it through the model registry — no manual step, no scoping.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -86,8 +86,9 @@ MLFLOW_URI = "mlruns"  # local folder where MLflow stores experiment data
 EXPERIMENT_NAME = "supply-chain-tft"
 
 BATCH_SIZE = 64  # number of training windows processed together in one step
-MAX_EPOCHS = 30  # maximum training epochs (EarlyStopping may stop sooner)
-NUM_WORKERS = 0  # data loading workers - keep 0 on Windows to avoid issues
+# EarlyStopping may stop sooner; RETRAIN_MAX_EPOCHS lets CI cap it for CPU speed.
+MAX_EPOCHS = int(os.environ.get("RETRAIN_MAX_EPOCHS", 30))
+NUM_WORKERS = int(os.environ.get("RETRAIN_NUM_WORKERS", 0))  # >0 speeds CI (Linux)
 
 
 def train():

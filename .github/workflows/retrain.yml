@@ -1,0 +1,68 @@
+name: Retrain TFT
+
+# Triggered from the MLOps Monitor "Trigger retraining" button (via the
+# /api/retrain route) or manually from the Actions tab. Retrains the TFT on
+# GitHub's free CPU runners, exports fresh forecasts, and opens a PR — a review
+# gate so a scoped CPU demo-retrain never silently replaces the production model.
+on:
+  workflow_dispatch:
+    inputs:
+      sample_parts:
+        description: "Parts to train on (fewer = faster on CPU)"
+        default: "40"
+      max_epochs:
+        description: "Max training epochs"
+        default: "3"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      RETRAIN_SAMPLE_PARTS: ${{ github.event.inputs.sample_parts || '40' }}
+      RETRAIN_MAX_EPOCHS: ${{ github.event.inputs.max_epochs || '3' }}
+      RETRAIN_NUM_WORKERS: "2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CPU PyTorch + ML stack
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-local.txt
+
+      - name: Ensure dataset
+        run: python -m data.generate_data
+
+      - name: Train TFT (CPU, scoped)
+        run: python -m forecasting.train
+
+      - name: Export forecasts
+        run: python -m forecasting.export_forecasts
+
+      - name: Open PR with retrained forecasts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- lib/data/forecasts.json; then
+            echo "forecasts.json unchanged — nothing to open a PR for."
+            exit 0
+          fi
+          BRANCH="retrain/${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add lib/data/forecasts.json
+          git commit -m "Retrain: update TFT forecasts (CI, CPU, ${RETRAIN_SAMPLE_PARTS} parts x ${RETRAIN_MAX_EPOCHS} epochs)"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "Automated retrain: refreshed TFT forecasts" \
+            --body "Triggered from the MLOps Monitor. This is a **CPU-scoped CI retrain** (${RETRAIN_SAMPLE_PARTS} parts, ${RETRAIN_MAX_EPOCHS} epochs) that demonstrates the end-to-end pipeline: train → export → PR → deploy on merge. Review before merging — a scoped run covers fewer parts than the full production model. For a full retrain, run locally on a GPU (or a paid GPU runner) with the RETRAIN_* env overrides removed. Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
