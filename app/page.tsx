@@ -6,8 +6,8 @@ import { ForecastTab } from "@/components/forecast-tab";
 import { MlopsTab } from "@/components/mlops-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// 2.5in side gutter on wide screens, scaling down gracefully on smaller ones.
-const GUTTER = "px-5 md:px-10 xl:px-[2.5in]";
+// 2in side gutter on wide screens, scaling down gracefully on smaller ones.
+const GUTTER = "px-5 md:px-10 xl:px-[2in]";
 
 function Logo() {
   return (
@@ -41,8 +41,8 @@ function Logo() {
 
 export default function Home() {
   return (
-    <main className="flex h-screen flex-col">
-      <header className="border-b border-border bg-card/40">
+    <main className="min-h-screen">
+      <header className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur">
         <div className={`flex items-center gap-3 py-3.5 ${GUTTER}`}>
           <Logo />
           <div>
@@ -56,9 +56,9 @@ export default function Home() {
         </div>
       </header>
 
-      <div className={`flex min-h-0 flex-1 flex-col py-4 ${GUTTER}`}>
-        <Tabs defaultValue="inventory" className="flex min-h-0 flex-1 flex-col">
-          <TabsList variant="line" className="h-auto gap-2 bg-transparent p-0">
+      <div className={`py-4 ${GUTTER}`}>
+        <Tabs defaultValue="inventory">
+          <TabsList variant="line" className="h-auto flex-wrap gap-2 bg-transparent p-0">
             <TabsTrigger value="inventory" className="tab-pill after:hidden">
               Inventory Dashboard
             </TabsTrigger>
@@ -73,16 +73,16 @@ export default function Home() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="inventory" className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <TabsContent value="inventory" className="pt-4">
             <InventoryDashboard />
           </TabsContent>
-          <TabsContent value="forecast" className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <TabsContent value="forecast" className="pt-4">
             <ForecastTab />
           </TabsContent>
-          <TabsContent value="assistant" className="min-h-0 flex-1 pt-4">
+          <TabsContent value="assistant" className="pt-4">
             <Assistant />
           </TabsContent>
-          <TabsContent value="mlops" className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <TabsContent value="mlops" className="pt-4">
             <MlopsTab />
           </TabsContent>
         </Tabs>

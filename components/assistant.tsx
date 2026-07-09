@@ -106,7 +106,7 @@ export function Assistant() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <ProviderBar
         provider={provider}
         onProviderChange={setProvider}
@@ -125,7 +125,7 @@ export function Assistant() {
         </Button>
       </div>
 
-      <div className="panel-edge flex-1 space-y-3 overflow-y-auto rounded-xl border border-border bg-card/30 p-3">
+      <div className="panel-edge h-[55vh] min-h-[320px] space-y-3 overflow-y-auto rounded-xl border border-border bg-card/30 p-3">
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No messages yet — try &ldquo;Which parts are most at risk, and what should I reorder?&rdquo;
