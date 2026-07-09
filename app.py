@@ -28,6 +28,7 @@ The app has four tabs:
 """
 
 import os
+import json
 from dotenv import load_dotenv
 import pandas as pd
 
@@ -93,6 +94,21 @@ api_key = st.session_state["api_key"]
 def load_data(path: str = "data/supply_chain_data.csv") -> pd.DataFrame:
     df = pd.read_csv(path, parse_dates=["date"])
     return df
+
+
+@st.cache_data
+def load_tft_forecasts(path: str = "lib/data/forecasts.json") -> dict:
+    """Precomputed TFT p10/p50/p90 daily arrays per part (same data the web app serves).
+
+    Exported by `forecasting/export_forecasts.py` from the trained checkpoint, so the
+    Streamlit forecast tab shows the real TFT curves instead of a statistical stand-in.
+    Returns {} if the file is missing so the tab falls back to the baseline.
+    """
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
 
 @st.cache_data(ttl=0)
@@ -756,20 +772,31 @@ with tab3:
 
         st.markdown("---")
 
-        # Generate the forecast using the last 60 days of actuals as baseline
-        # (or fewer if the dataset is shorter)
-        lookback = min(60, len(part_data))
-        recent_demand = part_data["demand"].tail(lookback).values
-        avg = float(recent_demand.mean())
-        std = float(recent_demand.std())
-        lead_time = int(part_meta["lead_time_days"])
+        # Prefer the real TFT forecast (precomputed p10/p50/p90 daily arrays).
+        # Fall back to a statistical baseline only if the part isn't in the export.
         horizon = 30
-        trend = np.linspace(0, avg * 0.05, horizon)
-        p50 = np.maximum(avg + trend, 0)
-        p10 = np.maximum(p50 - 1.65 * std, 0)
-        p90 = p50 + 1.65 * std
+        lead_time = int(part_meta["lead_time_days"])
+        tft = load_tft_forecasts().get(selected_part)
+        if tft and len(tft.get("p50", [])) == horizon:
+            p10 = np.array(tft["p10"], dtype=float)
+            p50 = np.array(tft["p50"], dtype=float)
+            p90 = np.array(tft["p90"], dtype=float)
+            avg = float(p50.mean())
+            forecast_source = "TFT model"
+        else:
+            # Statistical baseline: last 60 days mean + 5% trend + ±1.65σ band
+            lookback = min(60, len(part_data))
+            recent_demand = part_data["demand"].tail(lookback).values
+            avg = float(recent_demand.mean())
+            std = float(recent_demand.std())
+            trend = np.linspace(0, avg * 0.05, horizon)
+            p50 = np.maximum(avg + trend, 0)
+            p10 = np.maximum(p50 - 1.65 * std, 0)
+            p90 = p50 + 1.65 * std
+            forecast_source = "statistical baseline"
 
         st.subheader(f"Forecast: {selected_part} — Next {horizon} Days")
+        st.caption(f"Source: **{forecast_source}**")
 
         # Custom HTML cards so label and value are balanced in size.
         # st.metric() uses a very large font for values with no way to override it.
