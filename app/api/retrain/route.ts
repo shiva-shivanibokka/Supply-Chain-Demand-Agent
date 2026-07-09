@@ -37,7 +37,7 @@ export async function POST() {
     return Response.json({
       ok: true,
       message:
-        "Retraining dispatched. It runs on GitHub Actions (CPU) and opens a PR with refreshed forecasts when done.",
+        "Retraining dispatched. It runs on GitHub Actions (CPU) and auto-commits refreshed forecasts to main, which redeploys, when done (~20–40 min).",
     });
   }
 

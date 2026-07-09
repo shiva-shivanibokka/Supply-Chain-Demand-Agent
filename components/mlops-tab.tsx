@@ -209,8 +209,9 @@ export function MlopsTab() {
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p className="leading-relaxed">
             When drift appears, this fires a GitHub Actions pipeline that retrains the TFT,
-            exports fresh forecasts, and opens a pull request — merging it redeploys the new
-            model. It closes the loop: monitor → retrain → review → ship.
+            exports fresh forecasts, and commits them straight to main — Vercel then
+            auto-deploys the new model. Fully automated: monitor → retrain → ship, no manual
+            merge.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -229,9 +230,9 @@ export function MlopsTab() {
               <strong className="text-foreground">Why CPU + GitHub Actions?</strong>{" "}
               Vercel&rsquo;s serverless functions have no GPU and can&rsquo;t run PyTorch, so
               training can&rsquo;t happen in the app. On the free tier we retrain on
-              GitHub&rsquo;s CPU runners — slow, so the CI run is scoped to fewer parts and
-              epochs, and gated behind a PR so a scoped CPU model never silently replaces the
-              full GPU-trained one.
+              GitHub&rsquo;s CPU runners — slower than a GPU, so epochs are capped for time. It
+              keeps full 200-part coverage and auto-deploys, so the model stays a little less
+              trained than a local GPU run (retrain locally on a GPU for best quality).
             </p>
             <p>
               <strong className="text-foreground">With a paid tier</strong> we&rsquo;d swap in
