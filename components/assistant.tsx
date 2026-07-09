@@ -8,7 +8,8 @@ import {
   getToolName,
   type UIMessage,
 } from "ai";
-import type { ProviderName } from "@/lib/providers";
+import { DEFAULT_PROVIDER, PROVIDERS, type ProviderName } from "@/lib/providers";
+import { ProviderBar } from "@/components/provider-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -60,15 +61,10 @@ function MessageBubble({ message }: { message: UIMessage }) {
   );
 }
 
-export function Assistant({
-  provider,
-  model,
-  apiKey,
-}: {
-  provider: ProviderName;
-  model: string;
-  apiKey: string;
-}) {
+export function Assistant() {
+  const [provider, setProvider] = useState<ProviderName>(DEFAULT_PROVIDER);
+  const [model, setModel] = useState(PROVIDERS[DEFAULT_PROVIDER].models[0]);
+  const [apiKey, setApiKey] = useState("");
   const [input, setInput] = useState("");
   const { messages, sendMessage, status, error, setMessages } = useChat({
     transport: new DefaultChatTransport({
@@ -88,6 +84,14 @@ export function Assistant({
 
   return (
     <div className="flex h-full flex-col gap-3">
+      <ProviderBar
+        provider={provider}
+        onProviderChange={setProvider}
+        model={model}
+        onModelChange={setModel}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+      />
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Ask about at-risk parts, demand forecasts, or supplier policy.

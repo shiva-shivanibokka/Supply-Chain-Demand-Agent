@@ -61,12 +61,16 @@ const tooltipStyle = {
 
 const summary = summarizeInventory();
 const CATEGORIES = Array.from(new Set(summary.parts.map((p) => p.category))).sort();
+const CATEGORY_OPTIONS = ["All", ...CATEGORIES];
 
 export function InventoryDashboard() {
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
+  const [category, setCategory] = useState<string>("All");
 
   const filtered = useMemo(
-    () => summary.parts.filter((p) => p.category === category),
+    () =>
+      category === "All"
+        ? summary.parts
+        : summary.parts.filter((p) => p.category === category),
     [category],
   );
 
@@ -92,7 +96,7 @@ export function InventoryDashboard() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {CATEGORIES.map((c) => (
+            {CATEGORY_OPTIONS.map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
               </SelectItem>
@@ -187,9 +191,9 @@ export function InventoryDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All parts</CardTitle>
+          <CardTitle>Parts — {category} ({filtered.length})</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="max-h-[26rem] overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,7 +209,7 @@ export function InventoryDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summary.parts.map((p) => (
+              {filtered.map((p) => (
                 <TableRow key={p.part_id}>
                   <TableCell className="font-medium">{p.part_id}</TableCell>
                   <TableCell>{p.category}</TableCell>

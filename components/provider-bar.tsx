@@ -28,7 +28,7 @@ export function ProviderBar({
   const config = PROVIDERS[provider];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card/40 p-3">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/40 p-3">
       <Select
         value={provider}
         onValueChange={(value) => {
