@@ -1,0 +1,20 @@
+{
+ "run": "full, origin 1430, seed 0",
+ "gpu": {
+  "MAE": 6.720351133333334,
+  "pinball": 2.3016940055555555,
+  "cov80": 0.804
+ },
+ "cpu": {
+  "MAE": 6.721064466666666,
+  "pinball": 2.311003665,
+  "cov80": 0.7978333333333333
+ },
+ "abs_MAE_diff": 0.0007133333333326775,
+ "mean_abs_q50_diff_units": 1.1298997666666666,
+ "gpu_seed1_seed2_MAE_same_origin": {
+  "1": 6.68698325,
+  "2": 6.695262816666667
+ },
+ "note": "Same code, seed and hyper-parameters; CPU (2 threads) vs GPU. Not bit-identical (different best epoch)."
+}

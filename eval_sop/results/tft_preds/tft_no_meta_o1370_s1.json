@@ -1,0 +1,13 @@
+{
+ "variant": "no_meta",
+ "seed": 1,
+ "origin": 1370,
+ "train_seconds": 543.2,
+ "epochs_run": 6,
+ "best_inner_val_loss": 4.8036580085754395,
+ "best_ckpt": "epoch=5-step=900.ckpt",
+ "n_train_samples": 274000,
+ "batches_per_epoch": 150,
+ "batch_size": 128,
+ "max_epochs": 6
+}

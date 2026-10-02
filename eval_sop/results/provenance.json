@@ -1,0 +1,14 @@
+{
+ "regenerated_csv_identical": true,
+ "n_rows": 292200,
+ "n_parts": 200,
+ "date_range": [
+  "2021-01-01",
+  "2024-12-31"
+ ],
+ "zero_demand_fraction": 0.0,
+ "r2_part_mean_on_category_supplier_region": 0.022490374359389498,
+ "adj_r2_part_mean_on_category_supplier_region": -0.029229711653341317,
+ "corr_part_mean_vs_lead_time": 0.020736972990193624,
+ "corr_part_mean_vs_price": -0.08203119420980542
+}
