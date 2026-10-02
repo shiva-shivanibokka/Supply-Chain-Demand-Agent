@@ -1,0 +1,16 @@
+{
+ "last_observed_time_idx": 1460,
+ "last_observed_date": "2024-12-31",
+ "original_export_decoder_time_idx_first_last": [
+  1431,
+  1460
+ ],
+ "original_export_decoder_dates_first_last": [
+  "2024-12-02",
+  "2024-12-31"
+ ],
+ "committed_forecasts_json_parts": 200,
+ "committed_p50_MAE_vs_last30_observed_days": 6.719916666666666,
+ "committed_p10p90_coverage_on_last30_observed_days": 0.8056666666666668,
+ "conclusion": "Decoder covers the last 30 OBSERVED days (in-sample window used as validation during training), not the 30 days after the data ends."
+}

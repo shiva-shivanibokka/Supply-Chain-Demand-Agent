@@ -21,7 +21,7 @@ import os
 
 DATA = "data/supply_chain_data.csv"
 OUT = "lib/data/forecasts.json"
-CKPT_DIR = "forecasting/saved_model"
+CKPT_DIR = os.environ.get("EXPORT_CKPT_DIR", "forecasting/saved_model")
 
 
 def _sanity_check(part_id: str, p10: list, p50: list, p90: list) -> None:
@@ -43,11 +43,46 @@ def _sanity_check(part_id: str, p10: list, p50: list, p90: list) -> None:
             )
 
 
+def _best_checkpoint(ckpts: list) -> str:
+    """Pick the checkpoint with the lowest val_loss in its filename
+    (tft-best-epoch=XX-val_loss=Y.ckpt). sorted()[0] picked the OLDEST epoch,
+    not the best one, whenever more than one checkpoint was on disk."""
+    import re
+
+    def score(p: str) -> float:
+        m = re.search(r"val_loss=([0-9.]+?)(?:\.ckpt)?$", os.path.basename(p))
+        return float(m.group(1)) if m else float("inf")
+
+    return min(ckpts, key=score)
+
+
+def _append_future_rows(part_df, horizon: int):
+    """Append `horizon` rows AFTER the last observed day with only the
+    known-in-advance covariates (calendar features + static attributes).
+    With predict=True, pytorch-forecasting uses the LAST max_prediction_length
+    rows as the decoder; without these rows the "forecast" was the last 30
+    already-observed days (sop-eval fix, see RESULTS.md)."""
+    import pandas as pd
+
+    last = part_df.iloc[-1]
+    dates = pd.date_range(last["date"] + pd.Timedelta(days=1), periods=horizon, freq="D")
+    fut = pd.DataFrame([last.to_dict()] * horizon)
+    fut["date"] = dates
+    fut["time_idx"] = int(last["time_idx"]) + 1 + pd.RangeIndex(horizon)
+    fut["month"] = dates.month.astype(str)
+    fut["day_of_week"] = dates.dayofweek.astype(str)
+    fut["quarter"] = dates.quarter.astype(str)
+    # demand/inventory are time-varying UNKNOWN reals: the decoder never sees
+    # them, the placeholder value only satisfies the dataset's NaN check.
+    fut = fut.astype(part_df.dtypes.to_dict())
+    return pd.concat([part_df, fut], ignore_index=True)
+
+
 def main() -> None:
     ckpts = sorted(glob.glob(f"{CKPT_DIR}/*.ckpt"))
     if not ckpts:
         raise SystemExit("No checkpoint found. Train first: python -m forecasting.train")
-    ckpt = ckpts[0]
+    ckpt = _best_checkpoint(ckpts)
     print(f"Using checkpoint: {ckpt}")
 
     import torch
@@ -63,11 +98,18 @@ def main() -> None:
     out: dict[str, dict[str, float]] = {}
     part_ids = sorted(full_df["part_id"].unique())
     for i, part_id in enumerate(part_ids, 1):
-        part_df = full_df[full_df["part_id"] == part_id]
+        part_df = _append_future_rows(
+            full_df[full_df["part_id"] == part_id].sort_values("time_idx"), DECODER_LENGTH
+        )
         pred_ds = TimeSeriesDataSet.from_dataset(training_ds, part_df, predict=True)
         loader = pred_ds.to_dataloader(train=False, batch_size=1, num_workers=0)
         with torch.no_grad():
             preds = model.predict(loader, mode="quantiles", return_y=False)
+        if i == 1:
+            x, _ = next(iter(loader))
+            print(f"  decoder time_idx {int(x['decoder_time_idx'][0, 0])}.."
+                  f"{int(x['decoder_time_idx'][0, -1])} (last observed "
+                  f"{int(full_df['time_idx'].max())})")
         p10 = preds[:, :, 0].cpu().numpy().flatten()[:DECODER_LENGTH]
         p50 = preds[:, :, 1].cpu().numpy().flatten()[:DECODER_LENGTH]
         p90 = preds[:, :, 2].cpu().numpy().flatten()[:DECODER_LENGTH]
@@ -82,10 +124,11 @@ def main() -> None:
         if i % 25 == 0 or i == len(part_ids):
             print(f"  {i}/{len(part_ids)} parts forecast")
 
-    os.makedirs("lib/data", exist_ok=True)
-    with open(OUT, "w") as f:
+    out_path = os.environ.get("EXPORT_OUT", OUT)
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w") as f:
         json.dump(out, f)
-    print(f"Wrote {len(out)} TFT forecasts to {OUT}")
+    print(f"Wrote {len(out)} TFT forecasts to {out_path}")
 
 
 if __name__ == "__main__":

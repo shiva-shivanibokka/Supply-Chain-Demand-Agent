@@ -1,0 +1,9 @@
+Using checkpoint: <tmp>/tft-best-epoch=01-val_loss=4.5668.ckpt
+  decoder time_idx 1461..1490 (last observed 1460)
+  3/3 parts forecast
+Wrote 3 TFT forecasts to <tmp>/forecasts.json
+file under test : <worktree>/forecasting/export_forecasts.py
+last observed time_idx = 1460; decoder windows seen = [(1461, 1490)]
+[PASS] decoder starts at last_observed+1
+[PASS] best checkpoint loaded (got tft-best-epoch=01-val_loss=4.5668.ckpt)
+exit=0
