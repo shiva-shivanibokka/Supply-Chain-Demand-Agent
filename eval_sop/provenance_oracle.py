@@ -56,7 +56,7 @@ def main():
                 rows.append(("Oracle", -1, o, pid, h + 1, t, q[0.1], q[0.5], q[0.9]))
     pd.DataFrame(rows, columns=["model", "seed", "origin", "part_id", "h", "time_idx",
                                 "q10", "q50", "q90"]).to_csv(
-        os.path.join(RESULTS, "oracle_preds.csv"), index=False)
+        os.path.join(RESULTS, "oracle_preds.csv.gz"), index=False)
 
     # covariate signal check
     pp = csv.groupby("part_id").agg(mean=("demand", "mean"), category=("category", "first"),

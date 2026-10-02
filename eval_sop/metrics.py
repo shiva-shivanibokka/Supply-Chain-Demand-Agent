@@ -75,8 +75,8 @@ def main():
     tft_files = sorted(glob.glob(os.path.join(RESULTS, "tft_preds", "*.csv*")))
     preds = [pd.read_csv(f) for f in sorted(glob.glob(os.path.join(RESULTS, "baseline_preds", "o*.csv.gz")))]
     preds += [pd.read_csv(f) for f in tft_files]
-    if os.path.exists(os.path.join(RESULTS, "oracle_preds.csv")):
-        preds.append(pd.read_csv(os.path.join(RESULTS, "oracle_preds.csv")))
+    if os.path.exists(os.path.join(RESULTS, "oracle_preds.csv.gz")):
+        preds.append(pd.read_csv(os.path.join(RESULTS, "oracle_preds.csv.gz")))
     preds = pd.concat(preds, ignore_index=True)
     preds["model"] = preds["model"].replace({"full": "TFT", "no_meta": "TFT_no_meta"})
     g = score(preds, actuals, scales)

@@ -12,7 +12,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 DATA = os.path.join(ROOT, "data", "supply_chain_data.csv")
-RESULTS = os.path.join(ROOT, "eval_sop", "results")
+RESULTS = os.environ.get("SOP_RESULTS", os.path.join(ROOT, "eval_sop", "results"))
 HORIZON = 30
 MAX_T = 1460  # last time_idx in the data (1461 days, 2021-01-01..2024-12-31)
 ORIGINS = [MAX_T - HORIZON * k for k in (4, 3, 2, 1)]  # [1340, 1370, 1400, 1430]

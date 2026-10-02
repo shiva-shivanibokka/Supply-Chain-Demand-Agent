@@ -83,6 +83,8 @@ def make_datasets(df, origin, variant):
 
 def run_one(datasets, origin, seed, variant, args):
     pl.seed_everything(seed, workers=True)
+    if args.accel == "gpu":
+        torch.cuda.reset_peak_memory_stats()
     training, val, test = datasets
     tl = training.to_dataloader(train=True, batch_size=args.batch_size, num_workers=0)
     vl = val.to_dataloader(train=False, batch_size=256, num_workers=0)
@@ -115,6 +117,7 @@ def run_one(datasets, origin, seed, variant, args):
     t0 = time.time()
     trainer.fit(model, tl, vl)
     train_s = time.time() - t0
+    peak_mb = (torch.cuda.max_memory_allocated() / 2**20) if args.accel == "gpu" else None
     best = TemporalFusionTransformer.load_from_checkpoint(ck.best_model_path)
     best.eval()
     pred = best.predict(te, mode="quantiles", return_index=True,
@@ -136,7 +139,7 @@ def run_one(datasets, origin, seed, variant, args):
                 best_ckpt=os.path.basename(ck.best_model_path),
                 n_train_samples=len(training), batches_per_epoch=args.batches_per_epoch,
                 batch_size=args.batch_size, max_epochs=args.max_epochs,
-                device=args.accel, torch_threads=THREADS, torch_version=torch.__version__)
+                device=args.accel, torch_threads=THREADS, cuda_peak_alloc_mb=peak_mb, torch_version=torch.__version__)
     return out, meta
 
 
@@ -151,7 +154,11 @@ def main():
     ap.add_argument("--ckpt-dir", default=os.environ.get("SOP_CKPT_DIR", "eval_sop_ckpts"))
     ap.add_argument("--accel", default="cpu", choices=["cpu", "gpu"],
                     help="runs dated 2026-10-01 used gpu; later runs cpu (see RESULTS.md)")
+    ap.add_argument("--gpu-mem-fraction", type=float, default=0.25,
+                    help="cap on this process's share of VRAM (GPU shared with Ollama)")
     args = ap.parse_args()
+    if args.accel == "gpu":
+        torch.cuda.set_per_process_memory_fraction(args.gpu_mem_fraction, 0)
 
     df = load_and_prepare(DATA)
     os.makedirs(RESULTS, exist_ok=True)
@@ -165,7 +172,16 @@ def main():
                 continue
             if datasets is None:
                 datasets = make_datasets(df, origin, args.variant)
-            out, meta = run_one(datasets, origin, seed, args.variant, args)
+            try:
+                out, meta = run_one(datasets, origin, seed, args.variant, args)
+            except torch.cuda.OutOfMemoryError:
+                # VRAM is shared with Ollama (priority): fall back to CPU for this run only.
+                print("CUDA OOM -> rerunning on CPU:", tag, flush=True)
+                torch.cuda.empty_cache()
+                accel, args.accel = args.accel, "cpu"
+                out, meta = run_one(datasets, origin, seed, args.variant, args)
+                args.accel = accel
+                meta["oom_fallback_to_cpu"] = True
             os.makedirs(os.path.dirname(path), exist_ok=True)
             out.to_csv(path, index=False, float_format="%.4f")
             with open(os.path.join(RESULTS, "tft_preds", tag + ".json"), "w") as f:
