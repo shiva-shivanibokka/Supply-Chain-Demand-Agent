@@ -1,0 +1,527 @@
+{
+ "summary": {
+  "model": "qwen2.5:7b",
+  "runtime": "ollama (local), api=native",
+  "num_ctx": 8192,
+  "temperature": 0.7,
+  "seed": 1,
+  "questions": "agent_questions_hard.json",
+  "forecasts": "forecasts_fixed_export.json",
+  "n_questions": 14,
+  "tool_selection_accuracy": 0.7857142857142857,
+  "first_tool_correct": 0.7142857142857143,
+  "answer_accuracy": 0.7857142857142857,
+  "no_tool_call": 0,
+  "by_tool": {
+   "get_inventory_status": {
+    "n": 14,
+    "tool_acc": 11,
+    "ans_acc": 11
+   },
+   "get_demand_forecast": {
+    "n": 0,
+    "tool_acc": 0,
+    "ans_acc": 0
+   },
+   "search_knowledge_base": {
+    "n": 0,
+    "tool_acc": 0,
+    "ans_acc": 0
+   }
+  }
+ },
+ "records": [
+  {
+   "id": "H1",
+   "question": "How many more units of inventory does PART_083 have than PART_039? (A negative number means fewer.)",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 68,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_083"
+    ],
+    [
+     "get_inventory_status",
+     "PART_039"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_083"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_039"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "PART_083 has 68 more units of inventory than PART_039. \n\nPART_083 Inventory: 287 units\nPART_039 Inventory: 219 units\nDifference: 287 - 219 = 68 units",
+   "seconds": 7.4
+  },
+  {
+   "id": "H2",
+   "question": "How many more units of inventory does PART_102 have than PART_167? (A negative number means fewer.)",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": -351,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_102"
+    ],
+    [
+     "get_inventory_status",
+     "PART_167"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_102"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_167"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "PART_102 has 351 more units of inventory than PART_167.",
+   "seconds": 6.1
+  },
+  {
+   "id": "H3",
+   "question": "How many more units of inventory does PART_013 have than PART_019? (A negative number means fewer.)",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 956,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_013"
+    ],
+    [
+     "get_inventory_status",
+     "PART_019"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_013"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_019"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "PART_013 has 956 more units of inventory than PART_019 (1296 - 340 = 956).",
+   "seconds": 6.4
+  },
+  {
+   "id": "H4",
+   "question": "What is the combined current inventory of PART_138 and PART_025, in units?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 3742,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_138"
+    ],
+    [
+     "get_inventory_status",
+     "PART_025"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_138",
+      "top_n": 1
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_025",
+      "top_n": 1
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The combined current inventory of PART_138 and PART_025 is 1129 + 2613 = 3742 units.",
+   "seconds": 6.6
+  },
+  {
+   "id": "H5",
+   "question": "What is the combined current inventory of PART_094 and PART_150, in units?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 2916,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_094"
+    ],
+    [
+     "get_inventory_status",
+     "PART_150"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_094",
+      "top_n": 1
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_150",
+      "top_n": 1
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The combined current inventory of PART_094 and PART_150 is 2916 units (1354 units of PART_094 + 1562 units of PART_150).",
+   "seconds": 6.9
+  },
+  {
+   "id": "H6",
+   "question": "By how many units does the current stock of PART_015 exceed (or fall short of) its median 30-day demand forecast?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": -1464,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_015"
+    ],
+    [
+     "get_demand_forecast",
+     "PART_015"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_015",
+      "top_n": 1
+     }
+    },
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_015"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the inventory status and demand forecast for PART_015:\n\n- Current inventory: 1677 units\n- Median 30-day demand forecast: 3141 units\n\nThe current stock of PART_015 falls short of the median 30-day demand by approximately 1464 units (3141 - 1677 = 1464). \n\nTo meet the 50th percentile demand, you should order at least 3141 units. For a 90% service level, order at least 3599 units.\n\nAction item: Place an order for at least 3599 units of PART_015 to avoid stockouts.",
+   "seconds": 9.0
+  },
+  {
+   "id": "H7",
+   "question": "By how many units does the current stock of PART_130 exceed (or fall short of) its median 30-day demand forecast?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 740,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_130"
+    ],
+    [
+     "get_demand_forecast",
+     "PART_130"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_130",
+      "top_n": 1
+     }
+    },
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_130"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the inventory status and demand forecast for PART_130:\n\n- Current inventory: 1769 units\n- Median 30-day demand forecast: 1029 units\n\nThe current stock exceeds the median 30-day demand forecast by **740 units** (1769 - 1029 = 740).",
+   "seconds": 7.5
+  },
+  {
+   "id": "H8",
+   "question": "By how many units does the current stock of PART_055 exceed (or fall short of) its median 30-day demand forecast?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": -1335,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_055"
+    ],
+    [
+     "get_demand_forecast",
+     "PART_055"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_055",
+      "top_n": 1
+     }
+    },
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_055"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the inventory status and demand forecast for PART_055:\n\n- Current inventory: 977 units\n- Median 30-day demand forecast: 2312 units (p50)\n\nThe current stock falls short of the median 30-day demand forecast by approximately **2312 - 977 = 1335 units**. \n\nTo meet the 50th percentile demand, you should consider ordering additional units to ensure adequate stock levels.",
+   "seconds": 7.9
+  },
+  {
+   "id": "H9",
+   "question": "Given current stock, how many additional units of PART_011 must we order so that stock covers the 90%-service-level (p90) 30-day demand?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 318,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_011"
+    ],
+    [
+     "get_demand_forecast",
+     "PART_011"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_011"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": false,
+   "answer_correct": false,
+   "final_answer": "Given the 30-day demand forecast at the 90% service level (p90) for PART_011, you must order an additional 1404 units to cover this demand. \n\nTo summarize, your current inventory status combined with the forecast indicates you need to order 1404 units of PART_011 to meet the 90% service level for the next 30 days.",
+   "seconds": 7.1
+  },
+  {
+   "id": "H10",
+   "question": "Given current stock, how many additional units of PART_025 must we order so that stock covers the 90%-service-level (p90) 30-day demand?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1188,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_025"
+    ],
+    [
+     "get_demand_forecast",
+     "PART_025"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_025"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_025"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "To cover the 90%-service level (p90) 30-day demand for PART_025, you need to order an additional 1188 units. This is calculated based on the 30-day demand forecast of 3801 units (p90) minus the current inventory of 2613 units.",
+   "seconds": 9.5
+  },
+  {
+   "id": "H11",
+   "question": "Who supplies PART_112, and what is the on-time delivery rate of that supplier?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 96.2,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_112"
+    ],
+    [
+     "search_knowledge_base",
+     null
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "PART_112 supplier on-time delivery rate"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": false,
+   "answer_correct": true,
+   "final_answer": "Based on the search results, SupplierA is the supplier for PART_112. The on-time delivery rate for SupplierA is 96.2%.",
+   "seconds": 6.1
+  },
+  {
+   "id": "H12",
+   "question": "Who supplies PART_108, and what is the on-time delivery rate of that supplier?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 88.3,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_108"
+    ],
+    [
+     "search_knowledge_base",
+     null
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "PART_108 supplier on-time delivery rate"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": false,
+   "answer_correct": false,
+   "final_answer": "Based on the search results, SupplierA is the supplier for PART_108. SupplierA has an on-time delivery rate of 96.2%.",
+   "seconds": 6.1
+  },
+  {
+   "id": "H13",
+   "question": "Among PART_018, PART_062 and PART_024, which has the fewest days of supply, and how many days is it?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": [
+    "PART_018",
+    12.4
+   ],
+   "required_calls": [
+    [
+     "get_inventory_status",
+     "PART_018"
+    ],
+    [
+     "get_inventory_status",
+     "PART_062"
+    ],
+    [
+     "get_inventory_status",
+     "PART_024"
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": [
+       "PART_018",
+       "PART_062",
+       "PART_024"
+      ]
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_018"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_062"
+     }
+    },
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_024"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the inventory status:\n\n- **PART_018**: 12.4 days of supply\n- **PART_062**: 21.6 days of supply\n- **PART_024**: 24.5 days of supply\n\n**PART_018** has the fewest days of supply at **12.4 days**.",
+   "seconds": 11.6
+  },
+  {
+   "id": "H14",
+   "question": "How many of the 10 most at-risk parts are at CRITICAL risk?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 7,
+   "required_calls": [
+    [
+     "get_inventory_status",
+     null
+    ]
+   ],
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "top_n": 10
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": false,
+   "final_answer": "Out of the 10 most at-risk parts, 6 are at the CRITICAL risk level. These parts are:\n- PART_016 (Valve, SupplierA)\n- PART_059 (Valve, SupplierD)\n- PART_032 (Controller, SupplierD)\n- PART_051 (Filter, SupplierB)\n- PART_031 (Filter, SupplierA)\n- PART_021 (Pump, SupplierD)\n- PART_066 (Filter, SupplierD)",
+   "seconds": 7.7
+  }
+ ]
+}
