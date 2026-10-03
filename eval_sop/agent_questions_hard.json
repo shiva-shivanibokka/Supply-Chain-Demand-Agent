@@ -1,0 +1,271 @@
+[
+ {
+  "q": "How many more units of inventory does PART_083 have than PART_039? (A negative number means fewer.)",
+  "kind": "abs_number",
+  "answer": 68,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_083"
+   ],
+   [
+    "get_inventory_status",
+    "PART_039"
+   ]
+  ],
+  "id": "H1",
+  "tool": "get_inventory_status",
+  "part_id": "PART_083",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "How many more units of inventory does PART_102 have than PART_167? (A negative number means fewer.)",
+  "kind": "abs_number",
+  "answer": -351,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_102"
+   ],
+   [
+    "get_inventory_status",
+    "PART_167"
+   ]
+  ],
+  "id": "H2",
+  "tool": "get_inventory_status",
+  "part_id": "PART_102",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "How many more units of inventory does PART_013 have than PART_019? (A negative number means fewer.)",
+  "kind": "abs_number",
+  "answer": 956,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_013"
+   ],
+   [
+    "get_inventory_status",
+    "PART_019"
+   ]
+  ],
+  "id": "H3",
+  "tool": "get_inventory_status",
+  "part_id": "PART_013",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "What is the combined current inventory of PART_138 and PART_025, in units?",
+  "kind": "number",
+  "answer": 3742,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_138"
+   ],
+   [
+    "get_inventory_status",
+    "PART_025"
+   ]
+  ],
+  "id": "H4",
+  "tool": "get_inventory_status",
+  "part_id": "PART_138",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "What is the combined current inventory of PART_094 and PART_150, in units?",
+  "kind": "number",
+  "answer": 2916,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_094"
+   ],
+   [
+    "get_inventory_status",
+    "PART_150"
+   ]
+  ],
+  "id": "H5",
+  "tool": "get_inventory_status",
+  "part_id": "PART_094",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "By how many units does the current stock of PART_015 exceed (or fall short of) its median 30-day demand forecast?",
+  "kind": "abs_number",
+  "answer": -1464,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_015"
+   ],
+   [
+    "get_demand_forecast",
+    "PART_015"
+   ]
+  ],
+  "id": "H6",
+  "tool": "get_inventory_status",
+  "part_id": "PART_015",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "By how many units does the current stock of PART_130 exceed (or fall short of) its median 30-day demand forecast?",
+  "kind": "abs_number",
+  "answer": 740,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_130"
+   ],
+   [
+    "get_demand_forecast",
+    "PART_130"
+   ]
+  ],
+  "id": "H7",
+  "tool": "get_inventory_status",
+  "part_id": "PART_130",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "By how many units does the current stock of PART_055 exceed (or fall short of) its median 30-day demand forecast?",
+  "kind": "abs_number",
+  "answer": -1335,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_055"
+   ],
+   [
+    "get_demand_forecast",
+    "PART_055"
+   ]
+  ],
+  "id": "H8",
+  "tool": "get_inventory_status",
+  "part_id": "PART_055",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "Given current stock, how many additional units of PART_011 must we order so that stock covers the 90%-service-level (p90) 30-day demand?",
+  "kind": "number",
+  "answer": 318,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_011"
+   ],
+   [
+    "get_demand_forecast",
+    "PART_011"
+   ]
+  ],
+  "id": "H9",
+  "tool": "get_inventory_status",
+  "part_id": "PART_011",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "Given current stock, how many additional units of PART_025 must we order so that stock covers the 90%-service-level (p90) 30-day demand?",
+  "kind": "number",
+  "answer": 1188,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_025"
+   ],
+   [
+    "get_demand_forecast",
+    "PART_025"
+   ]
+  ],
+  "id": "H10",
+  "tool": "get_inventory_status",
+  "part_id": "PART_025",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "Who supplies PART_112, and what is the on-time delivery rate of that supplier?",
+  "kind": "number",
+  "answer": 96.2,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_112"
+   ],
+   [
+    "search_knowledge_base",
+    null
+   ]
+  ],
+  "id": "H11",
+  "tool": "get_inventory_status",
+  "part_id": "PART_112",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "Who supplies PART_108, and what is the on-time delivery rate of that supplier?",
+  "kind": "number",
+  "answer": 88.3,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_108"
+   ],
+   [
+    "search_knowledge_base",
+    null
+   ]
+  ],
+  "id": "H12",
+  "tool": "get_inventory_status",
+  "part_id": "PART_108",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "Among PART_018, PART_062 and PART_024, which has the fewest days of supply, and how many days is it?",
+  "kind": "id_and_number",
+  "answer": [
+   "PART_018",
+   12.4
+  ],
+  "required_calls": [
+   [
+    "get_inventory_status",
+    "PART_018"
+   ],
+   [
+    "get_inventory_status",
+    "PART_062"
+   ],
+   [
+    "get_inventory_status",
+    "PART_024"
+   ]
+  ],
+  "id": "H13",
+  "tool": "get_inventory_status",
+  "part_id": "PART_018",
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ },
+ {
+  "q": "How many of the 10 most at-risk parts are at CRITICAL risk?",
+  "kind": "number",
+  "answer": 7,
+  "required_calls": [
+   [
+    "get_inventory_status",
+    null
+   ]
+  ],
+  "id": "H14",
+  "tool": "get_inventory_status",
+  "part_id": null,
+  "added": "2026-10-02, harder set; forecast answers from the corrected export"
+ }
+]

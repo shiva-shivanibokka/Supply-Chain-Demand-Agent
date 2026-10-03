@@ -233,55 +233,193 @@ def grade(q, final):
     raise ValueError(q["kind"])
 
 
-def run_agent(client, model, question, max_steps=6):
+HARD_QPATH = os.path.join(ROOT, "eval_sop", "agent_questions_hard.json")
+FIXED_FORECASTS = os.path.join(ROOT, "eval_sop", "results", "forecasts_fixed_export.json")
+
+
+def build_hard_questions():
+    """ADDED 2026-10-02 (not part of the original 30): multi-step / cross-part
+    questions, labelled by code. Forecast-based answers use the CORRECTED export
+    (eval_sop/results/forecasts_fixed_export.json, decoder = the 30 days after
+    2024-12-31); run these with --forecasts pointing at that file."""
+    global FORECASTS
+    FORECASTS = json.load(open(FIXED_FORECASTS))
+    rng = random.Random(7)
+    ids = sorted(BY_ID)
+
+    def inv(p):
+        return int(js_round(BY_ID[p]["inventory"]))
+
+    qs = []
+    for _ in range(3):
+        a, b = rng.sample(ids, 2)
+        qs.append(dict(q=f"How many more units of inventory does {a} have than {b}? (A negative number means fewer.)",
+                       kind="abs_number", answer=inv(a) - inv(b),
+                       required_calls=[["get_inventory_status", a], ["get_inventory_status", b]]))
+    for _ in range(2):
+        a, b = rng.sample(ids, 2)
+        qs.append(dict(q=f"What is the combined current inventory of {a} and {b}, in units?", kind="number",
+                       answer=inv(a) + inv(b),
+                       required_calls=[["get_inventory_status", a], ["get_inventory_status", b]]))
+    for p in rng.sample(ids, 3):
+        qs.append(dict(q=f"By how many units does the current stock of {p} exceed (or fall short of) its median 30-day demand forecast?",
+                       kind="abs_number", answer=inv(p) - forecast_numbers(p)["p50"],
+                       required_calls=[["get_inventory_status", p], ["get_demand_forecast", p]]))
+    short = [p for p in ids if forecast_numbers(p)["p90"] > inv(p)]
+    for p in rng.sample(short, 2):
+        qs.append(dict(q=f"Given current stock, how many additional units of {p} must we order so that stock covers the 90%-service-level (p90) 30-day demand?",
+                       kind="number", answer=forecast_numbers(p)["p90"] - inv(p),
+                       required_calls=[["get_inventory_status", p], ["get_demand_forecast", p]]))
+    # on-time rates copied from lib/data/docs.json supplier_001..004 (human-written docs)
+    ontime = {"SupplierA": 96.2, "SupplierB": 91.7, "SupplierC": 84.1, "SupplierD": 88.3}
+    for p in rng.sample(ids, 2):
+        qs.append(dict(q=f"Who supplies {p}, and what is the on-time delivery rate of that supplier?", kind="number",
+                       answer=ontime[BY_ID[p]["supplier"]],
+                       required_calls=[["get_inventory_status", p], ["search_knowledge_base", None]]))
+    trio = rng.sample(ids, 3)
+    lo = min(trio, key=lambda p: days_of_supply(BY_ID[p]))
+    qs.append(dict(q=f"Among {trio[0]}, {trio[1]} and {trio[2]}, which has the fewest days of supply, and how many days is it?",
+                   kind="id_and_number", answer=[lo, days_of_supply(BY_ID[lo])],
+                   required_calls=[["get_inventory_status", t] for t in trio]))
+    top10 = sorted([p for p in ids if risk(BY_ID[p]) != "OK"], key=lambda p: days_of_supply(BY_ID[p]))[:10]
+    qs.append(dict(q="How many of the 10 most at-risk parts are at CRITICAL risk?", kind="number",
+                   answer=sum(risk(BY_ID[p]) == "CRITICAL" for p in top10),
+                   required_calls=[["get_inventory_status", None]]))
+    for i, q in enumerate(qs):
+        q["id"] = f"H{i + 1}"
+        q["tool"] = q["required_calls"][0][0]
+        q["part_id"] = q["required_calls"][0][1]
+        q["added"] = "2026-10-02, harder set; forecast answers from the corrected export"
+    with open(HARD_QPATH, "w") as f:
+        json.dump(qs, f, indent=1)
+    print(f"wrote {len(qs)} hard questions to {HARD_QPATH}")
+
+
+def grade_any(q, final):
+    if q["kind"] == "abs_number":  # sign may be phrased as "short by"/"exceeds by"
+        return any(abs(abs(v) - abs(q["answer"])) <= 0.5 for v in nums_in(final))
+    if q["kind"] == "id_and_number":
+        pid, val = q["answer"]
+        tol = 0.05 if not float(val).is_integer() else 0.5
+        return pid in final and any(abs(v - val) <= tol for v in nums_in(final))
+    return grade(q, final)
+
+
+def tool_correct(q, calls):
+    req = q.get("required_calls") or [[q["tool"], q["part_id"]]]
+    for name, pid in req:
+        if not any(c["name"] == name and (pid is None or c["args"].get("part_id") == pid) for c in calls):
+            return False
+    return True
+
+
+def chat_openai(client, model, msgs, temperature, seed, num_ctx):
+    r = client.chat.completions.create(model=model, messages=msgs, tools=TOOLS,
+                                       temperature=temperature, seed=seed)
+    m = r.choices[0].message
+    tcs = [(tc.id, tc.function.name, tc.function.arguments) for tc in (m.tool_calls or [])]
+    asst = {"role": "assistant", "content": m.content or ""}
+    if m.tool_calls:
+        asst["tool_calls"] = [tc.model_dump() for tc in m.tool_calls]
+    return m.content or "", tcs, asst
+
+
+def chat_native(base, model, msgs, temperature, seed, num_ctx):
+    """Ollama native /api/chat: pins num_ctx (<= 8192) per request."""
+    import httpx
+    body = {"model": model, "messages": msgs, "tools": TOOLS, "stream": False, "keep_alive": "15m",
+            "options": {"temperature": temperature, "seed": seed, "num_ctx": num_ctx}}
+    r = httpx.post(base.rstrip("/") + "/api/chat", json=body, timeout=900)
+    r.raise_for_status()
+    m = r.json()["message"]
+    tcs = [(f"call_{i}", tc["function"]["name"], tc["function"].get("arguments", {}))
+           for i, tc in enumerate(m.get("tool_calls") or [])]
+    asst = {"role": "assistant", "content": m.get("content", "")}
+    if m.get("tool_calls"):
+        asst["tool_calls"] = m["tool_calls"]
+    return m.get("content", ""), tcs, asst
+
+
+def run_agent(chat, question, max_steps=6):
     msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
     calls = []
     for _ in range(max_steps):
-        r = client.chat.completions.create(model=model, messages=msgs, tools=TOOLS,
-                                           temperature=0, seed=0)
-        m = r.choices[0].message
-        if not m.tool_calls:
-            return m.content or "", calls
-        msgs.append({"role": "assistant", "content": m.content or "",
-                     "tool_calls": [tc.model_dump() for tc in m.tool_calls]})
-        for tc in m.tool_calls:
+        content, tcs, asst = chat(msgs)
+        if not tcs:
+            return content, calls
+        msgs.append(asst)
+        for tid, name, raw in tcs:
+            if isinstance(raw, dict):
+                args = raw
+            else:
+                try:
+                    args = json.loads(raw or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+            # The TS route validates inputs with zod (part_id: string, top_n: number) and the
+            # AI SDK returns a tool error to the model instead of crashing; mirror that.
             try:
-                args = json.loads(tc.function.arguments or "{}")
-            except json.JSONDecodeError:
-                args = {}
-            out = run_tool(tc.function.name, args)
-            calls.append({"name": tc.function.name, "args": args})
-            msgs.append({"role": "tool", "tool_call_id": tc.id, "content": out})
+                out = run_tool(name, args)
+            except Exception as e:  # e.g. part_id passed as a list
+                out = f"Error: invalid input for tool {name}: {type(e).__name__}: {e}"
+            calls.append({"name": name, "args": args})
+            msgs.append({"role": "tool", "tool_call_id": tid, "content": out})
     return "", calls  # step cap hit without a final answer
 
 
 def main():
+    global FORECASTS
     ap = argparse.ArgumentParser()
     ap.add_argument("--build-questions", action="store_true")
+    ap.add_argument("--build-hard", action="store_true")
     ap.add_argument("--model", default="qwen2.5:7b-instruct-q8_0")
     ap.add_argument("--base-url", default="http://localhost:11434/v1")
+    ap.add_argument("--api", default="openai", choices=["openai", "native"],
+                    help="native = Ollama /api/chat with options.num_ctx (used from 2026-10-02)")
+    ap.add_argument("--num-ctx", type=int, default=8192)
+    ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--questions", default=QPATH)
+    ap.add_argument("--forecasts", default=None, help="override lib/data/forecasts.json for the forecast tool")
+    ap.add_argument("--tag", default="")
     args = ap.parse_args()
     if args.build_questions:
         build_questions()
         return
-    from openai import OpenAI
-    client = OpenAI(base_url=args.base_url, api_key="ollama")  # local Ollama, no key
-    qs = json.load(open(QPATH))
+    if args.build_hard:
+        build_hard_questions()
+        return
+    if args.forecasts:
+        FORECASTS = json.load(open(args.forecasts))
+    if args.api == "openai":
+        from openai import OpenAI
+        client = OpenAI(base_url=args.base_url, api_key="ollama")  # local Ollama, no key
+
+        def chat(msgs):
+            return chat_openai(client, args.model, msgs, args.temperature, args.seed, args.num_ctx)
+    else:
+        base = args.base_url[:-3] if args.base_url.endswith("/v1") else args.base_url
+
+        def chat(msgs):
+            return chat_native(base, args.model, msgs, args.temperature, args.seed, args.num_ctx)
+    qs = json.load(open(args.questions))
     recs = []
     for q in qs:
         t0 = time.time()
-        final, calls = run_agent(client, args.model, q["q"])
+        final, calls = run_agent(chat, q["q"])
         names = [c["name"] for c in calls]
-        tool_ok = q["tool"] in names
-        if tool_ok and q["part_id"]:
-            tool_ok = any(c["name"] == q["tool"] and c["args"].get("part_id") == q["part_id"] for c in calls)
         recs.append(dict(id=q["id"], question=q["q"], expected_tool=q["tool"], expected_answer=q["answer"],
+                         required_calls=q.get("required_calls"),
                          tool_calls=calls, first_tool=names[0] if names else None,
-                         tool_correct=bool(tool_ok), answer_correct=bool(grade(q, final)),
+                         tool_correct=bool(tool_correct(q, calls)), answer_correct=bool(grade_any(q, final)),
                          final_answer=final, seconds=round(time.time() - t0, 1)))
         print(q["id"], recs[-1]["tool_correct"], recs[-1]["answer_correct"], flush=True)
     n = len(recs)
-    summ = dict(model=args.model, runtime="ollama (local)", n_questions=n,
+    summ = dict(model=args.model, runtime=f"ollama (local), api={args.api}",
+                num_ctx=args.num_ctx if args.api == "native" else "server default",
+                temperature=args.temperature, seed=args.seed, questions=os.path.basename(args.questions),
+                forecasts=os.path.basename(args.forecasts) if args.forecasts else "lib/data/forecasts.json",
+                n_questions=n,
                 tool_selection_accuracy=sum(r["tool_correct"] for r in recs) / n,
                 first_tool_correct=sum(r["first_tool"] == r["expected_tool"] for r in recs) / n,
                 answer_accuracy=sum(r["answer_correct"] for r in recs) / n,
@@ -290,7 +428,7 @@ def main():
                                  tool_acc=sum(r["tool_correct"] for r in recs if r["expected_tool"] == t),
                                  ans_acc=sum(r["answer_correct"] for r in recs if r["expected_tool"] == t))
                          for t in ("get_inventory_status", "get_demand_forecast", "search_knowledge_base")})
-    tag = re.sub(r"[^A-Za-z0-9]+", "_", args.model)
+    tag = re.sub(r"[^A-Za-z0-9]+", "_", args.model) + (f"_{args.tag}" if args.tag else "")
     with open(os.path.join(RESULTS, f"agent_eval_{tag}.json"), "w") as f:
         json.dump(dict(summary=summ, records=recs), f, indent=1)
     print(json.dumps(summ, indent=1))
