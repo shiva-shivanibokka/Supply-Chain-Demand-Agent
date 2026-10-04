@@ -3,7 +3,7 @@
 Branch `sop-eval` (base `0f94fd1`). Everything here can be reproduced from `eval_sop/`.
 Raw outputs are in `eval_sop/results/`. Dates: 2026-10-01 to 2026-10-02. Machine: Windows 11 laptop, RTX 4060 Laptop 8 GB, shared with other jobs.
 
-**Headline:** on this repo's **synthetic** data, the TFT beats every statistical baseline tried. Its MAE is 14% lower than AutoARIMA, the strongest baseline, and it sits 5.5% above an oracle that knows the data generator. Its 80% intervals are close to calibrated (79.6% coverage). Removing the static covariates (category, supplier, region, lead time, price) makes **no measurable difference** (ΔMAE = +0.004, 95% CI [−0.019, +0.026]). That is what the data generator implies. None of this tells us anything about real demand data.
+**Headline:** on this repo's **synthetic** data, the TFT beats every statistical baseline tried. Its MAE is 14% lower than AutoARIMA, the strongest baseline (95% CI 13–16%). It sits about 5.5% above a spike-agnostic oracle built from the data generator (95% CI 4.9–6.1%). That oracle is not a lower bound: its own 80% coverage is 0.829. Its 80% intervals are close to calibrated (79.6% coverage). Removing the static covariates (category, supplier, region, lead time, price) makes **no measurable difference** (ΔMAE = +0.004, 95% CI [−0.019, +0.026]). That is what the data generator implies. None of this tells us anything about real demand data.
 
 ---
 
@@ -66,15 +66,19 @@ CPU and GPU are not bit-identical. Seed std of MAE is 0.03 to 0.05. See the CPU 
 Single-run baselines have no seed std. The CIs are wide in absolute units because MAE scales with each part's base demand (5 to 80 units/day). Paired differences are much tighter:
 
 **Paired differences, TFT (full) minus other model** (`results/paired_diffs.json`):
-| vs | ΔMAE [95% CI] | rel. | Δpinball [95% CI] |
+| vs | ΔMAE [95% CI] | rel. MAE [95% CI] | Δpinball [95% CI] (rel. [95% CI]) |
 |---|---|---|---|
-| AutoARIMA | −1.150 [−1.332, −0.989] | −14.4% | −0.629 [−0.686, −0.577] (−21.0%) |
-| AutoETS | −1.292 [−1.484, −1.106] | −15.8% | −0.728 [−0.797, −0.662] |
-| Croston/TSB | −1.159 [−1.347, −0.995] | −14.4% | n/a |
-| AppBaseline | −2.659 [−2.974, −2.353] | −27.9% | −1.116 [−1.228, −1.008] |
-| SeasonalNaive7 | −3.434 [−3.919, −3.005] | −33.4% | −2.558 |
-| Oracle | +0.359 [+0.313, +0.406] | +5.5% | +0.111 [+0.097, +0.126] |
-| **TFT_no_meta (ablation)** | **+0.004 [−0.019, +0.026]** | +0.05% | +0.001 [−0.005, +0.007] |
+| AutoARIMA | −1.150 [−1.332, −0.989] | −14.4% [−15.9, −12.8] | −0.629 [−0.686, −0.577] (−21.0% [−21.9, −20.1]) |
+| AutoETS | −1.292 [−1.484, −1.106] | −15.8% [−17.5, −14.3] | −0.728 [−0.797, −0.662] (−23.5% [−24.7, −22.3]) |
+| Croston/TSB | −1.159 [−1.347, −0.995] | −14.4% [−16.0, −12.9] | n/a |
+| AppBaseline | −2.659 [−2.974, −2.353] | −27.9% [−29.8, −26.1] | −1.116 [−1.228, −1.008] (−32.0% [−33.4, −30.6]; see the caveat below) |
+| SeasonalNaive7 | −3.434 [−3.919, −3.005] | −33.4% [−35.7, −30.9] | −2.558 |
+| Oracle | +0.359 [+0.313, +0.406] | +5.5% [+4.9, +6.1] | +0.111 [+0.097, +0.126] (+4.9% [+4.4, +5.5]) |
+| **TFT_no_meta (ablation)** | **+0.004 [−0.019, +0.026]** | +0.05% [−0.28, +0.38] | +0.001 [−0.005, +0.007] |
+
+Relative CIs come from a paired, part-clustered bootstrap of 100·(mean_TFT / mean_other − 1): 2,000 resamples of the 200 parts, seed 12345, the same resamples as the ΔMAE CIs (`rel_diff_pct_ci95` in `paired_diffs.json`).
+
+**AppBaseline caveat:** the app's band is ±1.65·sd, which is nominally a **90%** interval (5th to 95th percentile). It is scored here as q10/q90, so its lower and upper quantiles sit too far out for pinball at 0.1 and 0.9. That penalises AppBaseline's pinball loss and inflates the −32% pinball gap; the MAE gap (−27.9%, which uses only the median) is not affected. Its coverage (0.860) is likewise against an 80% target it was not designed for.
 
 TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. It is the best non-oracle model at every origin (`results/per_origin.csv`).
 
@@ -158,7 +162,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - On this synthetic dataset, under a leakage-free rolling-origin protocol with 4 origins, 200 series and 3 seeds, the TFT has 14–16% lower MAE and 21–24% lower pinball loss than AutoARIMA and AutoETS. The paired 95% CIs exclude 0.
 - The TFT is about 28% better than the app's own fallback baseline.
 - Its 80% intervals cover 79.6% of the time. The statistical baselines over-cover (90–99%) with intervals 2 to 10 times wider, because the i.i.d. spikes inflate their residual variance.
-- The TFT gets within 5.5% (MAE) of an oracle that knows the generator.
+- The TFT's MAE is about 5.5% (95% CI 4.9–6.1%) above a spike-agnostic oracle built from the generator. The oracle is a reference point, not a lower bound (its coverage is 0.829).
 - Static metadata covariates do not help: the ablation difference is +0.05% MAE, with a CI spanning 0. This matches the data generator, where they carry no signal.
 
 ### 3.2 Not supported
@@ -196,7 +200,7 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 ---
 
 ## 4. SOP-ready sentences (strictly true as of this commit)
-1. "On a 200-series synthetic spare-parts dataset, I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 origins × 30 days, 3 seeds). It reduced MAE by 14% versus AutoARIMA (paired 95% CI 12–17%) and kept 80% prediction intervals near nominal coverage (79.6%), while staying within 6% of an oracle that knows the data generator."
+1. "On a 200-series synthetic spare-parts dataset, I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 origins × 30 days, 3 seeds). It reduced MAE by 14% versus AutoARIMA (95% CI 13–16%) and kept 80% prediction intervals near nominal coverage (79.6%). Its MAE was about 5.5% above a spike-agnostic oracle built from the data generator."
 2. "An ablation showed the model's static supplier, region and category covariates contributed nothing (ΔMAE +0.05%, CI spanning zero). That is consistent with how the synthetic data was generated, and it led me to retract the project's claim that the model learns supplier-specific patterns."
 3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were in-sample predictions of the last 30 observed days. I added a regression test that fails on the original code and passes after the fix."
 
@@ -230,6 +234,12 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Evidence:* `eval_sop/test_agent_grader.py` (11 cases) gives 5 FAIL on `c9220ec` (`results/test_agent_grader_before.txt`) and 11/11 PASS after the fix (`results/test_agent_grader_after.txt`). The re-grade changed exactly 3 flags, qwen H2 on seeds 0–2. qwen hard14 moved from answer 0.762 to **0.690**, and joint from 0.690 to **0.619 ± 0.041 [0.36, 0.86]**.
    - *Not a change for llama:* the review said llama is unchanged, which is true, but a first version of the fix would have wrongly failed llama's H2. llama wrote "PART_167 has 351 more than PART_102", which is the correct direction with the subject reversed. I added a subject-order rule and a test case for it, and llama's H2 stays correct.
    - *Preserved:* the original-30 grading kinds and all raw outputs.
+
+6. **`eval_sop/metrics.py`: proper CI for the relative differences** (fix phase, 2026-10-04).
+   - *What:* added `rel_diff_pct_ci95` to `paired_diffs.json`. It is a paired, part-clustered bootstrap of 100·(mean_a / mean_b − 1) on the same 2,000 resamples (seed 12345) as the ΔMAE CI.
+   - *Why:* the earlier SOP text "(paired 95% CI 12–17%)" was the ΔMAE CI divided by AutoARIMA's point MAE, which is not a CI for the ratio.
+   - *Evidence:* TFT vs AutoARIMA is −14.35% [−15.90, −12.81]; TFT vs Oracle is +5.51% [+4.91, +6.13]. Re-running `metrics.py` left every existing field of `paired_diffs.json` identical, as checked programmatically, and `per_part_window_metrics.csv.gz` identical in content (the file was restored to keep the committed bytes).
+   - *Also disclosed:* the AppBaseline ±1.65·sd band is a nominal 90% band scored as q10/q90 (see the §2 caveat).
 
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.

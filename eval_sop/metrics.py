@@ -123,8 +123,15 @@ def main():
             for k in ["MAE", "MASE", "pinball"]:
                 d = (a[k] - b[k]).to_numpy()
                 lo, hi = boot_ci(d, idx)
+                # Ratio CI: paired, part-clustered bootstrap of 100*(mean_a/mean_b - 1) on the
+                # SAME resampled parts (idx). Added 2026-10-04; previously only the point
+                # ratio existed, and dividing the dMAE CI by a point estimate is not a ratio CI.
+                av, bv = a[k].to_numpy(), b[k].to_numpy()
+                rel_bs = 100 * (av[idx].mean(axis=1) / bv[idx].mean(axis=1) - 1)
                 diffs.append({"a": tft, "b": other, "metric": k, "mean_diff_a_minus_b": float(d.mean()),
-                              "ci95": [lo, hi], "rel_diff_pct": float(100 * d.mean() / b[k].mean())})
+                              "ci95": [lo, hi], "rel_diff_pct": float(100 * d.mean() / b[k].mean()),
+                              "rel_diff_pct_ci95": [float(np.percentile(rel_bs, 2.5)),
+                                                    float(np.percentile(rel_bs, 97.5))]})
     diffs = pd.DataFrame(diffs)
 
     per_origin = g.groupby(["model", "origin"])[["MAE", "MASE", "pinball", "cov80"]].mean().reset_index()
