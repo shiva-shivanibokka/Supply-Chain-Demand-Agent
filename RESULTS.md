@@ -205,6 +205,7 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 2. "I checked the project's claim that the model learns supplier-specific patterns. The synthetic generator assigns supplier, region and category independently of demand (R² 0.022), and an ablation showed these covariates add nothing once part identity is known (ΔMAE +0.05%, 95% CI −0.28% to +0.38%). I corrected the claim in the README."
 3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were predictions of the last 30 already-observed days (the early-stopping window). I added regression tests that fail on the original code and pass after the fix."
    - Disclosure for sentence 3: the fix is in the code paths (export script and Streamlit agent). The committed web-app data file `lib/data/forecasts.json` has **not** been regenerated, so the deployed app still shows the old values.
+4. "On a code-labelled tool-use benchmark I built for the chat agent, two local 7–8B models reached 92–98% accuracy on single-lookup questions but only 40–62% (tool calls and answer both correct) on 14 multi-step questions (3 seeds; question-bootstrap CIs, e.g. [0.36, 0.86] for the better model). The most common failures were skipped lookups and unperformed arithmetic."
 
 ---
 
@@ -294,6 +295,7 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 PY=venv/Scripts/python.exe
 $PY -m eval_sop.check_export_bug
 $PY -m eval_sop.test_export_forecasts                    # fixed; pass a path to test the original file
+$PY -m eval_sop.test_best_checkpoint && $PY -m eval_sop.test_agent_forecast_path && $PY -m eval_sop.test_agent_grader   # no model/LLM needed
 $PY -m eval_sop.provenance_oracle
 OMP_NUM_THREADS=2 SOP_CKPT_DIR=<scratch> $PY -m eval_sop.tft_backtest --variant full    --accel gpu   # or --accel cpu
 OMP_NUM_THREADS=2 SOP_CKPT_DIR=<scratch> $PY -m eval_sop.tft_backtest --variant no_meta --accel gpu
