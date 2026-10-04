@@ -50,7 +50,8 @@ def _best_checkpoint(ckpts: list) -> str:
     import re
 
     def score(p: str) -> float:
-        m = re.search(r"val_loss=([0-9.]+?)(?:\.ckpt)?$", os.path.basename(p))
+        # \d+\.\d+ also matches Lightning's versioned names ("...-v1.ckpt").
+        m = re.search(r"val_loss=(\d+\.\d+)", os.path.basename(p))
         return float(m.group(1)) if m else float("inf")
 
     return min(ckpts, key=score)

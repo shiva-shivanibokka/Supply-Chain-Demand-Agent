@@ -259,6 +259,12 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Evidence:* `eval_sop/test_agent_forecast_path.py` uses a stub model and stubs out MLflow logging. Before the fix it reported FAIL on the decoder (1431–1460) and FAIL on the checkpoint. After the fix it reports PASS on the decoder (1461–1490) and PASS on the checkpoint. vitest passes 17/17.
    - *Preserved:* the statistical-baseline fallback, the exception handling, MLflow logging and all comments.
 
+9. **`forecasting/export_forecasts.py`: the `_best_checkpoint` regex now handles versioned names** (fix phase, 2026-10-04).
+   - *What:* changed `val_loss=([0-9.]+?)(?:\.ckpt)?$` to `val_loss=(\d+\.\d+)`.
+   - *Why:* Lightning names clashing checkpoints `...-v1.ckpt`. The old pattern scored those as `inf`, so a better versioned checkpoint was never chosen.
+   - *Evidence:* `eval_sop/test_best_checkpoint.py` FAILs the `-v1` case before the fix (`results/test_best_checkpoint_before.txt`) and passes 3/3 after (`results/test_best_checkpoint_after.txt`). `test_export_forecasts` still passes, and vitest passes 17/17.
+   - *Preserved:* all other export behaviour.
+
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
 - `npm ci --ignore-scripts` was run **inside the worktree** to run the existing vitest suite (node 24.14.0). `node_modules/` is gitignored and not committed.

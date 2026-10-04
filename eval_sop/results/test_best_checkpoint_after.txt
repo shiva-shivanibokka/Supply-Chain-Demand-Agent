@@ -1,0 +1,5 @@
+(forecasting/export_forecasts.py after the regex fix)
+[PASS] plain names: expected tft-best-epoch=01-val_loss=4.5668.ckpt, got tft-best-epoch=01-val_loss=4.5668.ckpt
+[PASS] versioned name (-v1) is best: expected tft-best-epoch=03-val_loss=4.5000-v1.ckpt, got tft-best-epoch=03-val_loss=4.5000-v1.ckpt
+[PASS] two versioned names: expected tft-best-epoch=02-val_loss=4.4000-v2.ckpt, got tft-best-epoch=02-val_loss=4.4000-v2.ckpt
+exit=0
