@@ -50,9 +50,15 @@ def _best_checkpoint(ckpts: list) -> str:
     import re
 
     def score(p: str) -> float:
-        # \d+\.\d+ also matches Lightning's versioned names ("...-v1.ckpt").
-        m = re.search(r"val_loss=(\d+\.\d+)", os.path.basename(p))
-        return float(m.group(1)) if m else float("inf")
+        # The fraction is OPTIONAL: Lightning writes "val_loss=4.ckpt" (or
+        # "val_loss=4") when the loss rounds to an integer, and a required
+        # "\d+\.\d+" scored those as inf, so they were never chosen. The
+        # trailing "-v1"/"-v2" of a clashing filename is ignored the same way.
+        m = re.search(r"val_loss=(\d+(?:\.\d+)?)", os.path.basename(p))
+        if m is None:
+            # Fail loudly: silently scoring inf is how the -v1 bug hid.
+            raise ValueError(f"cannot parse val_loss from checkpoint name: {p}")
+        return float(m.group(1))
 
     return min(ckpts, key=score)
 

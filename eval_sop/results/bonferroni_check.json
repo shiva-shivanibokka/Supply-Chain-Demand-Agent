@@ -1,0 +1,44 @@
+{
+ "n_comparisons": 66,
+ "alpha": 0.05,
+ "B": 200000,
+ "percentiles": [
+  0.03787878787878788,
+  99.96212121212122
+ ],
+ "marginal_cis_reported": 60,
+ "pairs": {
+  "TFT_minus_AutoARIMA_MAE": {
+   "mean_diff": -1.1497894541666667,
+   "bonferroni_ci": [
+    -1.4613085668450125,
+    -0.8707080280681823
+   ],
+   "bonferroni_rel_pct_ci": [
+    -17.009172230443745,
+    -11.690699210154886
+   ],
+   "boot_min_max_diff": [
+    -1.5608356541666666,
+    -0.7976670791666666
+   ],
+   "excludes_zero": true
+  },
+  "TFT_minus_Oracle_MAE": {
+   "mean_diff": 0.3585736833333334,
+   "bonferroni_ci": [
+    0.28396592787720965,
+    0.44117365938131287
+   ],
+   "bonferroni_rel_pct_ci": [
+    4.493516684054306,
+    6.6194966082754885
+   ],
+   "boot_min_max_diff": [
+    0.24565755,
+    0.4633855333333334
+   ],
+   "excludes_zero": true
+  }
+ }
+}

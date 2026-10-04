@@ -214,7 +214,7 @@ This project uses **two different forecasting paths**. Understanding the differe
 |---|---|---|
 | **Where it runs** | Trained locally (`forecasting/train.py`), exported to static JSON, served by the web app | Computed on the fly, in `lib/tools/forecast.ts`, when no exported entry exists for a part |
 | **Requires** | PyTorch, pytorch-forecasting (local training only — never installed at runtime on Vercel) | Nothing extra — pure TypeScript |
-| **Accuracy** (synthetic data, rolling-origin backtest — see `RESULTS.md`) | MAE 6.86 | MAE 9.52 |
+| **Accuracy** (synthetic data, rolling-origin backtest — see `RESULTS.md`; measured on a short-budget retrain, not on the shipped checkpoint) | MAE 6.86 | MAE 9.52 |
 | **Training needed** | Yes — run `forecasting/train.py` + `forecasting/export_forecasts.py` once | No — always available |
 | **Prediction intervals** | Learned quantiles (p10/p50/p90) from data | Computed from historical standard deviation |
 

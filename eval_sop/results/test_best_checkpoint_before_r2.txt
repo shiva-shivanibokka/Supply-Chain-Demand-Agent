@@ -1,8 +1,8 @@
 [PASS] plain names: expected tft-best-epoch=01-val_loss=4.5668.ckpt, got tft-best-epoch=01-val_loss=4.5668.ckpt
 [PASS] versioned name (-v1) is best: expected tft-best-epoch=03-val_loss=4.5000-v1.ckpt, got tft-best-epoch=03-val_loss=4.5000-v1.ckpt
 [PASS] two versioned names: expected tft-best-epoch=02-val_loss=4.4000-v2.ckpt, got tft-best-epoch=02-val_loss=4.4000-v2.ckpt
-[PASS] integer val_loss with .ckpt suffix: expected tft-best-epoch=05-val_loss=4.ckpt, got tft-best-epoch=05-val_loss=4.ckpt
-[PASS] integer val_loss, no extension: expected tft-best-epoch=05-val_loss=4, got tft-best-epoch=05-val_loss=4
+[FAIL] integer val_loss with .ckpt suffix: expected tft-best-epoch=05-val_loss=4.ckpt, got tft-best-epoch=00-val_loss=4.6037.ckpt
+[FAIL] integer val_loss, no extension: expected tft-best-epoch=05-val_loss=4, got tft-best-epoch=00-val_loss=4.6037.ckpt
 [PASS] integer val_loss is not always best: expected tft-best-epoch=00-val_loss=4.6037.ckpt, got tft-best-epoch=00-val_loss=4.6037.ckpt
-[PASS] no val_loss at all: raised ValueError: cannot parse val_loss from checkpoint name: d/tft-best-epoch=00.ckpt
-[PASS] one unparseable name among good ones: raised ValueError: cannot parse val_loss from checkpoint name: d/last.ckpt
+[FAIL] no val_loss at all: returned tft-best-epoch=00.ckpt instead of raising
+[FAIL] one unparseable name among good ones: returned tft-best-epoch=00-val_loss=4.6037.ckpt instead of raising

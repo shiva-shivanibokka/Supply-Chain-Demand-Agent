@@ -3,7 +3,11 @@
 Branch `sop-eval` (base `0f94fd1`). Everything here can be reproduced from `eval_sop/`.
 Raw outputs are in `eval_sop/results/`. Dates: 2026-10-01 to 2026-10-02. Machine: Windows 11 laptop, RTX 4060 Laptop 8 GB, shared with other jobs.
 
-**Headline:** on this repo's **synthetic** data, the TFT beats every statistical baseline tried. Its MAE is 14% lower than AutoARIMA, the strongest baseline (95% CI 13–16%). It sits about 5.5% above a spike-agnostic oracle built from the data generator (95% CI 4.9–6.1%). That oracle is not a lower bound: its own 80% coverage is 0.829. Its 80% intervals are close to calibrated (79.6% coverage). Removing the static covariates (category, supplier, region, lead time, price) makes **no measurable difference** (ΔMAE = +0.004, 95% CI [−0.019, +0.026]). That is what the data generator implies. None of this tells us anything about real demand data.
+**Headline:** on this repo's **synthetic** data, the TFT's MAE is 14% lower than AutoARIMA, the strongest baseline in the main table (95% CI 12.8–15.9%), and its 80% intervals are close to calibrated (79.6% coverage) where those baselines over-cover at 90–99%.
+
+**Read that with the seasonality asymmetry in mind.** The statistical baselines were specified with **weekly** seasonality only (`eval_sop/baselines.py:60-61`, AutoETS and AutoARIMA with `season_length=7`) on data that has **zero** weekly pattern, while the TFT receives `month` as a known-future covariate — the generator's only deterministic cycle. Closing that gap changes the story on point accuracy: a per-part **yearly-Fourier regression** (added 2026-10-04, `eval_sop/fourier_baseline.py`, §2.4) reaches **MAE 6.673** against the TFT's 6.862, i.e. the TFT is **2.8% worse** on MAE (paired 95% CI +2.1% to +3.6%). The TFT still wins on distributional quality by a wide margin: **11.5% lower pinball loss** (95% CI 10.7–12.3%) and 79.6% vs 97.6% coverage at an 80% nominal level, at half the interval width (18.4 vs 36.0). So on this generator the TFT's defensible advantage is **calibrated uncertainty, not point accuracy**.
+
+Removing the static covariates (category, supplier, region, lead time, price) makes **no measurable difference** (ΔMAE = +0.004, 95% CI [−0.019, +0.026]). That is what the data generator implies. The TFT sits about 5.5% above a spike-agnostic oracle built from the data generator (95% CI 4.9–6.1%); that oracle is not a lower bound, because its own 80% coverage is 0.829. None of this tells us anything about real demand data.
 
 ---
 
@@ -21,6 +25,8 @@ Raw outputs are in `eval_sop/results/`. Dates: 2026-10-01 to 2026-10-02. Machine
 - Models see only history up to and including the origin. The TFT is **early-stopped on an inner window (T−29…T)** that lies entirely before the test window, so the test window is never used to select the model. The original `train.py` early-stopped on the same window it reported.
 - **Metrics** (`eval_sop/metrics.py`): MAE of q50. MASE, which is MAE divided by the in-sample lag-1 naive MAE on history up to the origin, per part-window. Mean pinball loss over q ∈ {0.1, 0.5, 0.9}, which are the quantiles the TFT outputs. Coverage of [q10, q90], with 0.80 nominal. Mean interval width.
 - **Uncertainty**: the TFT is reported as mean ± std over **3 seeds (0, 1, 2)**. The 95% CIs are a **part-level bootstrap** (2,000 resamples of the 200 parts, RNG seed 12345) of the metric averaged over origins and seeds. Model comparisons use a *paired* bootstrap over the same resampled parts.
+- **Seed averaging comes first.** `eval_sop/metrics.py:98` averages each part's metric over the 3 seeds *before* the bootstrap resamples parts, so training variance is **excluded from every TFT CI and every paired CI**; they describe the seed-averaged model. Single-run variability is the separately reported seed std (0.027 MAE for the full TFT).
+- **Multiplicity (not adjusted in the tables).** Every CI below is an **unadjusted** 95% percentile bootstrap, and there are **66 pairwise comparisons** (22 model pairs — 2 TFT variants × 11 other models — × 3 metrics) plus **60 marginal CIs** (12 models × 5 metrics). The two headline comparisons survive a Bonferroni correction at α/66: re-running the same paired part-clustered bootstrap at the 0.0379 / 99.9621 percentiles (B raised to 200,000, since α/66 is not resolvable at B = 2,000; `eval_sop/bonferroni_check.py`, `results/bonferroni_check.json`) gives TFT − AutoARIMA ΔMAE **[−1.461, −0.871]** (relative **[−17.0%, −11.7%]**) and TFT − Oracle ΔMAE **[+0.284, +0.441]** (relative **[+4.49%, +6.62%]**). Both exclude 0. Nothing else in the tables has been adjusted, so marginal comparisons close to 0 — the ablation in particular — should not be read as 66-comparison-safe.
 
 ### Models
 | Model | Details |
@@ -28,7 +34,8 @@ Raw outputs are in `eval_sop/results/`. Dates: 2026-10-01 to 2026-10-02. Machine
 | **TFT** (`full`) | Same architecture as `forecasting/model.py`: hidden 64, 4 heads, dropout 0.1, lr 3e-3, QuantileLoss [0.1, 0.5, 0.9], encoder 90, decoder 30, softplus GroupNormalizer. Static covariates: part_id, category, supplier, region, lead_time_days, price_usd. |
 | **TFT_no_meta** | Ablation. Only part_id is kept as a static covariate. category, supplier, region, lead_time_days and price_usd are removed. |
 | Naive, SeasonalNaive7, SeasonalNaive365 | statsforecast 2.1.1, 80% intervals |
-| AutoETS (season 7), AutoARIMA (season 7) | statsforecast, fit on full history up to the origin |
+| AutoETS (season 7), AutoARIMA (season 7) | statsforecast, fit on full history up to the origin. **Weekly seasonality only** (`baselines.py:60-61`) on data with no weekly pattern, while the TFT gets `month`; see the headline and §2.4 |
+| **FourierYearly** (added 2026-10-04, reported separately in §2.4) | Per-part OLS on [1, t, sin/cos(2πk·t/365.25) for k = 1, 2], fit on history up to the origin; q10/q90 from the in-sample residual sd. The baseline the generator actually calls for. `eval_sop/fourier_baseline.py` |
 | MSTL365 | statsforecast MSTL(season 365) with an AutoETS(ZZN) trend |
 | CrostonClassic, TSB(0.1, 0.1) | Run because they were requested. **They are not appropriate here**, because the series are not intermittent. They are point forecasts only, so they have no pinball or coverage. With no zeros they reduce to SES, which is why their numbers are identical. |
 | AppBaseline | Port of the app's own fallback (`lib/tools/forecast.ts`): mean of the last 60 days, a linear 0→5% trend, ±1.65·sd |
@@ -80,7 +87,7 @@ Relative CIs come from a paired, part-clustered bootstrap of 100·(mean_TFT / me
 
 **AppBaseline caveat:** the app's band is ±1.65·sd, which is nominally a **90%** interval (5th to 95th percentile). It is scored here as q10/q90, so its lower and upper quantiles sit too far out for pinball at 0.1 and 0.9. That penalises AppBaseline's pinball loss and inflates the −32% pinball gap; the MAE gap (−27.9%, which uses only the median) is not affected. Its coverage (0.860) is likewise against an 80% target it was not designed for.
 
-TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. It is the best non-oracle model at every origin (`results/per_origin.csv`).
+TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. The two TFT variants are the best non-oracle models at every origin; between them, full wins at 1340 and 1430 and no_meta at 1370 and 1400 — differences well inside the ablation CI (`results/per_origin.csv`). This covers the models in the table above only: the yearly-Fourier baseline added later (§2.4) has a lower MAE than both TFT variants at all four origins (6.89 / 6.52 / 6.80 / 6.48).
 
 ### 2.1 Export bug (verified, fixed)
 - **Reproduced first.** `eval_sop/check_export_bug.py` builds the export's exact dataset, `from_dataset(..., part_df, predict=True)` on the full observed data. The decoder covers **time_idx 1431–1460 = 2024-12-02 to 2024-12-31, the last 30 *observed* days**, not the 30 days after the data ends (`results/export_bug_check.json`).
@@ -116,14 +123,18 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - Ollama 0.34.4, main server on :11434, one request at a time, native `/api/chat` with `num_ctx = 8192`. All prompts fit, with no truncation needed: the system prompt, tools and up to 3 KB documents total about 2–3k tokens.
 - temperature 0.7, seeds 0/1/2. The model was unloaded afterwards with `keep_alive: 0`.
 - Models: `llama3.1:8b` (Q4_K_M) and `qwen2.5:7b` (Q4_K_M, digest 845dbda0ea48).
-- 95% CIs are a **question-level bootstrap** (2,000 resamples, seed 12345) of per-question scores averaged over seeds (`results/agent_summary.json`). With 14 or 30 questions, these CIs are wide.
+- **Definitions.** *Tool selection* = every required tool call present with the right `part_id` **where a part_id is required**; for H11/H12 any `search_knowledge_base` query counts and for H14 any part-less inventory listing counts (`agent_eval.py:360` treats `pid is None` as a wildcard, and those templates are registered with `None`). *Answer accuracy* = the automatic grader passes. *Joint* = both.
+- 95% CIs are a **template-clustered bootstrap** (2,000 resamples of the question **templates**, pooling each drawn template's questions, seed 12345) of per-question scores averaged over seeds (`results/agent_summary.json`). The hard 14 come from **7 templates** (3+2+3+2+2+1+1) and the original 30 from **11** (8+5+5+1+1+3+3+1+1+1+1), so same-template siblings share question type, required tool pattern and failure mode; resampling individual questions treated correlated items as independent. The earlier question-level intervals are kept in `agent_summary.json` as `ci95_question_level` and listed in change log 11. With 7 or 11 clusters these CIs are very wide, which is the honest width.
+- **These intervals still undercover.** A percentile bootstrap of the mean of 14 (or 30) near-binary scores is unreliable near the ceiling whatever the resampling unit; nothing here fixes that. The earlier single temperature-0 run used an exact Clopper-Pearson interval instead.
 
 | Model | Set | Tool selection (mean ± seed std) [95% CI] | Answer accuracy [95% CI] | Joint [95% CI] |
 |---|---|---|---|---|
-| llama3.1:8b | original 30 | 1.000 ± 0.000 [1.00, 1.00] | 0.922 ± 0.077 [0.83, 0.99] | 0.922 ± 0.077 [0.83, 0.99] |
-| qwen2.5:7b | original 30 | 0.978 ± 0.019 [0.94, 1.00] | 0.978 ± 0.019 [0.94, 1.00] | 0.978 ± 0.019 [0.94, 1.00] |
-| llama3.1:8b | **added hard 14** | 0.619 ± 0.041 [0.40, 0.83] | 0.524 ± 0.082 [0.29, 0.74] | **0.405 ± 0.109** [0.19, 0.64] |
-| qwen2.5:7b | **added hard 14** | 0.762 ± 0.041 [0.55, 0.95] | 0.690 ± 0.041 [0.45, 0.90] | **0.619 ± 0.041** [0.36, 0.86] |
+| llama3.1:8b | original 30 | 1.000 ± 0.000 [1.00, 1.00] | 0.922 ± 0.077 [0.77, 1.00] | 0.922 ± 0.077 [0.77, 1.00] |
+| qwen2.5:7b | original 30 | 0.978 ± 0.019 [0.92, 1.00] | 0.978 ± 0.019 [0.92, 1.00] | 0.978 ± 0.019 [0.92, 1.00] |
+| llama3.1:8b | **added hard 14** | 0.619 ± 0.041 [0.31, 0.92] | 0.524 ± 0.082 [0.20, 0.84] | **0.405 ± 0.109** [0.08, 0.76] |
+| qwen2.5:7b | **added hard 14** | 0.762 ± 0.041 [0.43, 0.98] | 0.690 ± 0.041 [0.47, 0.88] | **0.619 ± 0.041** [0.33, 0.86] |
+
+All CIs above are template-clustered. Point estimates and seed stds are unchanged from the earlier run; only the intervals moved.
 
 **Earlier run.** On 2026-10-01, qwen2.5:7b ran on the original 30 at temperature 0 / seed 0 through the OpenAI-compatible endpoint. It scored 30/30 on tools and 30/30 on answers (Clopper-Pearson [0.88, 1.00]); see `results/agent_eval_qwen2_5_7b.json`. A llama3.1:8b-instruct-q8_0 run from that day did not finish and has no result.
 
@@ -143,7 +154,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 
 **Original 30.** The errors were llama finishing with meta-text and no answer, mainly on the list and forecast questions.
 
-**Interpretation.** Single-lookup relaying is near ceiling for both 7–8B local models. Multi-step questions that combine tools and arithmetic drop to 40–62% joint accuracy (llama 0.405, qwen 0.619). These are small local models; the app's intended providers (Groq gpt-oss, Claude) were not tested.
+**Interpretation.** Single-lookup relaying is near ceiling for both 7–8B local models. Multi-step questions that combine tools and arithmetic drop to 40–62% joint accuracy (llama 0.405, template-clustered 95% CI [0.08, 0.76]; qwen 0.619, [0.33, 0.86]) on 14 questions drawn from 7 templates. With 7 clusters the intervals barely constrain anything beyond "clearly below ceiling"; treat the point estimates as the finding and the ordering between the two models as unresolved. These are small local models; the app's intended providers (Groq gpt-oss, Claude) were not tested.
 
 - **Paid or other runs (not done):**
   - The app's default provider is Groq (`openai/gpt-oss-20b/120b`). That would be **$0 on the free tier**, but no Groq key exists on this machine.
@@ -155,12 +166,38 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - "Calibration" checks whether that historical average falls inside [p10Total/h, p90Total/h].
 - So this is a consistency check between forecast and history. It is not a drift or accuracy monitor. The file's own comment calls it "demo-grade".
 
+### 2.4 Yearly-Fourier baseline (added 2026-10-04, reported separately)
+
+§3.3 said a yearly-seasonality regression "might close the gap" and was untested. It is now tested. `eval_sop/fourier_baseline.py` fits, per part and per origin on history up to that origin only, an OLS regression of demand on `[1, t, sin(2πk·t/365.25), cos(2πk·t/365.25)]` for k = 1, 2, and takes q10/q90 as Gaussian quantiles of the in-sample residual sd. Same 4 origins × 200 parts, n = 800 part-windows, scored by the same `eval_sop/metrics.py` code path. Results in `results/fourier_baseline.json`, predictions in `results/fourier_preds.csv.gz`.
+
+| Model | MAE [95% CI] | MASE [95% CI] | Pinball [95% CI] | 80% coverage | Width |
+|---|---|---|---|---|---|
+| Oracle (reference) | 6.504 [6.03, 6.95] | 0.656 | 2.257 | 0.829 | 17.1 |
+| **FourierYearly** | **6.673** [6.20, 7.14] | 0.674 [0.659, 0.690] | 2.675 [2.48, 2.87] | 0.976 | 36.0 |
+| TFT (full) | 6.862 [6.37, 7.33] | 0.693 | 2.368 | 0.796 | 18.4 |
+| AutoARIMA | 8.012 [7.43, 8.61] | 0.809 | 2.998 | 0.961 | 38.6 |
+
+**Paired, part-clustered bootstrap (same 2,000 resamples, seed 12345):**
+| Comparison | ΔMAE [95% CI] | rel. MAE [95% CI] | Δpinball [95% CI] | rel. pinball [95% CI] |
+|---|---|---|---|---|
+| TFT − FourierYearly | **+0.189 [+0.136, +0.243]** | **+2.84% [+2.07, +3.62]** | −0.307 [−0.335, −0.279] | **−11.5% [−12.3, −10.7]** |
+| FourierYearly − AutoARIMA | −1.339 [−1.518, −1.170] | −16.7% [−18.1, −15.2] | −0.322 [−0.358, −0.289] | −10.8% [−11.5, −10.0] |
+| FourierYearly − Oracle | +0.169 [+0.141, +0.198] | +2.60% [+2.18, +3.03] | +0.418 [+0.386, +0.450] | +18.5% [+17.5, +19.6] |
+
+**What this means.**
+- The reviewer's suspicion was right: the main table's "TFT beats every statistical baseline" result was partly an artefact of giving the baselines the wrong seasonality. Matched on seasonal information, the simplest possible linear model has a **lower MAE than the TFT** (6.673 vs 6.862, TFT +2.8%, CI excludes 0), and sits only 2.6% above the oracle.
+- The TFT's advantage that survives is **distributional**: 11.5% lower pinball loss and 79.6% coverage against the Fourier model's 97.6% at an 80% nominal level, with half the interval width (18.4 vs 36.0). The Fourier model's residual sd absorbs the generator's i.i.d. spikes, so its Gaussian band is far too wide — the same failure as the statsforecast baselines.
+- Caveats. This is a **single fit, no seeds** (OLS is deterministic), and it is a *favourable-case* baseline: the generator's seasonality is literally a sine of day-of-year, so a yearly-Fourier basis is close to the true functional form. It should not be read as "linear regression beats deep learning"; it is evidence that this dataset is too easy to separate the two on point accuracy.
+- **Deliberately not merged into §2.** The main table, `summary.json`, `paired_diffs.json`, `per_origin.csv` and the 22 × 3 pairwise-comparison count behind the Bonferroni check in §1 are unchanged, so the previously audited numbers still mean what they said. `fourier_baseline.py` only reads `per_part_window_metrics.csv.gz`; it does not rewrite it.
+- **Not run:** AutoARIMA with `season_length=365`. Seasonal ARIMA at m = 365 over ~1,400 observations × 200 parts × 4 origins was not tractable on this laptop within the compute budget.
+
 ---
 
 ## 3. What the numbers do and don't support
 
 ### 3.1 Supported
 - On this synthetic dataset, under a leakage-free rolling-origin protocol with 4 origins, 200 series and 3 seeds, the TFT has 14–16% lower MAE and 21–24% lower pinball loss than AutoARIMA and AutoETS. The paired 95% CIs exclude 0.
+- **With this disclosure attached, not buried in §3.3:** those two baselines were given **weekly** seasonality only (`baselines.py:60-61`, `season_length=7`) on data with **no** weekly pattern, while the TFT gets `month` as a known-future covariate — the generator's only deterministic cycle. The comparison is therefore not seasonality-matched. Matched, the TFT's point-accuracy advantage disappears: a per-part yearly-Fourier regression has **lower** MAE than the TFT (6.673 vs 6.862; TFT +2.8%, 95% CI +2.1 to +3.6%, §2.4). What survives matching is the TFT's **interval quality** — 11.5% lower pinball loss and 79.6% vs 97.6% coverage at 80% nominal, at half the width.
 - The TFT is about 28% better than the app's own fallback baseline.
 - Its 80% intervals cover 79.6% of the time. The statistical baselines over-cover (90–99%) with intervals 2 to 10 times wider, because the i.i.d. spikes inflate their residual variance.
 - The TFT's MAE is about 5.5% (95% CI 4.9–6.1%) above a spike-agnostic oracle built from the generator. The oracle is a reference point, not a lower bound (its coverage is 0.829).
@@ -170,18 +207,20 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - Any claim about **real** supply-chain data. The data is synthetic, and the generator happens to be easy for a global model that sees calendar features. The yearly sine is a function of day-of-year, which the TFT gets through `month`. The ARIMA and ETS models used here have only weekly seasonality.
 - The README's former "supplier-specific patterns" / "Valve parts from SupplierA behave like X" claims. There are none to learn (generator analysis), and the ablation shows the metadata adds nothing given part_id. These README lines were corrected on this branch (change log 7).
 - Claims of "significantly more accurate" *before this eval*: there was no baseline anywhere in the repo. The claim now holds only in the narrow synthetic sense above.
+- **That the TFT is the most accurate model available for this data.** It is not, on point accuracy: a per-part yearly-Fourier OLS has a lower MAE (§2.4, paired CI excludes 0). What the TFT does better here is *calibrated* forecasting — lower pinball loss and near-nominal 80% coverage at half the interval width. The README's accuracy row compares the TFT only against the app's own fallback, which is a far weaker baseline than either.
 - Agent quality claims beyond these two small local models on 44 templated questions (§2.2). For example, nothing is known about the deployed providers or about free-form user phrasing.
 - That the deployed web forecasts are forecasts. Until `forecasts.json` is regenerated with the fixed export, they are in-sample.
 
 ### 3.3 Threats to validity
 - **Synthetic data with a simple generator.** Results may not transfer. The M5 / real-data check (optional plan item 4) was **not done**, because the laptop was shared and the compute was limited.
-- **Baselines.** The statistical models got default statsforecast settings with weekly seasonality only. MSTL365 was the only one with explicit yearly seasonality, and it did worse than ETS here. A tuned yearly-Fourier ARIMAX or dynamic regression might close the gap. That is untested.
+- **Baselines (asymmetric seasonality — now measured).** The statistical models got default statsforecast settings with weekly seasonality only, on data with no weekly pattern, while the TFT gets `month`. MSTL365 was the only table model with explicit yearly seasonality, and it did worse than ETS here. A yearly-Fourier regression is **no longer untested**: §2.4 fits one and it beats the TFT on MAE by 2.8% while losing on pinball by 11.5%. AutoARIMA at `season_length=365` is still untested (not tractable here).
+- **Hard-set forecast labels are not reproducible from the repo.** H6–H10 are labelled against `results/forecasts_fixed_export.json`, produced with an untracked local checkpoint. The file is committed so the labels are auditable, but their provenance cannot be re-derived without that checkpoint.
 - **TFT budget.** Training is short (about 0.4 of an epoch per run, see §1). A larger budget could change the absolute numbers, probably for the better.
 - **Mixed devices.** Runs were split across GPU and CPU, and the 2026-10-01 runs shared the GPU with other jobs. Seed std is small (0.03 to 0.05 MAE). See §3.4.
 - **Stale checkpoint directories.** Runs killed on 2026-10-01 (full o1400 s0 and no_meta o1400 s1) left checkpoint files behind. The reruns loaded their *own* best checkpoint: Lightning wrote `...-v1.ckpt` on a name clash, and `best_model_path` points to the current run.
-- **Bootstrap.** Parts are resampled, so dependence across origins within a part is kept. The 4 origins are not resampled, so uncertainty about time periods is understated.
+- **Bootstrap.** Parts are resampled, so dependence across origins within a part is kept. The 4 origins are not resampled, so uncertainty about time periods is understated. Seeds are averaged *before* resampling (`metrics.py:98`), so training variance is not in any CI (§1). The CIs are unadjusted across 66 pairwise comparisons and 60 marginal CIs; only the two headline comparisons were Bonferroni-checked (§1).
 - **The oracle ignores spikes and uses Gaussian quantiles.** It is a reference point, not a true lower bound. Its coverage is 0.83.
-- **The agent eval is a Python port**, not the TypeScript runtime. The grading is lenient: a number anywhere in the reply counts, apart from the direction check on H1–H3 and H6–H8. The hard set was written *after* seeing the ceiling result; its templates were designed to be harder, but no question was dropped or tuned after any model was run on it. Temperature 0.7 differs from the earlier temperature-0 run. n = 14 hard questions gives wide CIs.
+- **The agent eval is a Python port**, not the TypeScript runtime. The grading is lenient: a number anywhere in the reply counts, apart from the direction check on H1–H3 and H6–H8. The hard set was written *after* seeing the ceiling result; its templates were designed to be harder, but no question was dropped or tuned after any model was run on it. Temperature 0.7 differs from the earlier temperature-0 run. n = 14 hard questions from only **7 templates** gives very wide CIs even after clustering, and a percentile bootstrap of a mean of near-binary scores undercovers near the ceiling regardless.
 
 ### 3.4 CPU vs GPU replicate
 I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to train, against 196 s on GPU. The replicate is stored separately in `results/cpu_replicate/` and is **not** used in the main table.
@@ -201,11 +240,11 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 ---
 
 ## 4. SOP-ready sentences (strictly true as of this commit)
-1. "On a 200-series synthetic spare-parts dataset, I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 origins × 30 days, 3 seeds). It reduced MAE by 14% versus AutoARIMA (95% CI 13–16%) and kept 80% prediction intervals near nominal coverage (79.6%). Its MAE was about 5.5% above a spike-agnostic oracle built from the data generator."
+1. "On a 200-series synthetic spare-parts dataset I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 disjoint 30-day origins × 200 series × 3 seeds; n = 800 part-windows). It reduced MAE by 14% versus the strongest statistical baseline in my main table, AutoARIMA (paired part-clustered bootstrap 95% CI 12.8–15.9%), and kept 80% prediction intervals near nominal (79.6% coverage) where that baseline over-covered at 96%. Those baselines were specified with weekly seasonality only while the TFT receives month as a known future covariate — the generator's only deterministic cycle — so I then fitted the matching baseline, a per-part yearly-Fourier regression: it *beats* the TFT on MAE (6.67 vs 6.86; TFT +2.8%, 95% CI +2.1 to +3.6%) while losing 11.5% on pinball loss and over-covering at 97.6%. So on this generator the TFT's defensible advantage is calibrated uncertainty, not point accuracy. The TFT's MAE was about 5.5% above a spike-agnostic oracle built from the data generator; that oracle is a reference point, not a lower bound (its own 80% coverage is 0.829)."
 2. "I checked the project's claim that the model learns supplier-specific patterns. The synthetic generator assigns supplier, region and category independently of demand (R² 0.022), and an ablation showed these covariates add nothing once part identity is known (ΔMAE +0.05%, 95% CI −0.28% to +0.38%). I corrected the claim in the README."
 3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were predictions of the last 30 already-observed days (the early-stopping window). I added regression tests that fail on the original code and pass after the fix."
    - Disclosure for sentence 3: the fix is in the code paths (export script and Streamlit agent). The committed web-app data file `lib/data/forecasts.json` has **not** been regenerated, so the deployed app still shows the old values.
-4. "On a code-labelled tool-use benchmark I built for the chat agent, two local 7–8B models reached 92–98% accuracy on single-lookup questions but only 40–62% (tool calls and answer both correct) on 14 multi-step questions (3 seeds; question-bootstrap CIs, e.g. [0.36, 0.86] for the better model). The most common failures were skipped lookups and unperformed arithmetic."
+4. "On a code-labelled tool-use benchmark I built for the chat agent, two local 7–8B models reached 92–98% accuracy on single-lookup questions but only 40–62% joint (tool calls and answer both correct) on 14 multi-step questions drawn from 7 templates, over 3 seeds. Bootstrapping the templates rather than the questions, the joint intervals are [0.08, 0.76] for llama3.1:8b and [0.33, 0.86] for qwen2.5:7b — wide enough that only 'clearly below the single-lookup ceiling' is supported, not the ordering between the two models. The most common failures were skipped lookups and unperformed arithmetic."
 
 ---
 
@@ -267,9 +306,54 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Preserved:* all other export behaviour.
 
 10. **Results hygiene** (fix phase, 2026-10-04).
-   - *What:* removed absolute machine paths from `results/test_export_original_0f94fd1.txt` and `results/test_export_fixed.txt`; the scratch and temp prefixes are replaced with `<scratch>` / `<tmp>`, and the test logic is unchanged. Added `eval_sop/requirements-sf.txt` (the exact `pip freeze` of the statsforecast venv). Disclosed that "grader written before runs" cannot be verified from git (§2.2).
+   - *What:* removed absolute machine paths from `results/test_export_original_0f94fd1.txt` and `results/test_export_fixed.txt`. The scratch and temp prefixes are replaced with `<scratch>` / `<tmp>` and the test logic is unchanged. Added `eval_sop/requirements-sf.txt` (the exact `pip freeze` of the statsforecast venv). Disclosed that "grader written before runs" cannot be verified from git (§2.2).
+   - *History:* the scrub originally applied only to HEAD, so earlier commits in this branch still carried the paths. The branch history was then rewritten (`git filter-branch --index-filter`) to replace both files with their scrubbed versions in every commit that contains them; the final tree is byte-identical to before the rewrite, and no absolute machine path remains in any commit reachable from this branch.
    - *Why:* reproducibility and privacy.
    - *Preserved:* PASS/FAIL lines and decoder ranges are verbatim.
+
+11. **`eval_sop/agent_summary.py`: the agent-eval CIs now resample TEMPLATES, not questions** (round-2 fix phase, 2026-10-04).
+   - *What:* added `TEMPLATE_SIZES`, `template_index` and `cluster_boot_ci`. The headline `ci95` in `results/agent_summary.json` is now a percentile bootstrap over the question **templates** (2,000 resamples, seed 12345): each draw takes a template with replacement and pools all of its questions, so unequal template sizes weight a draw exactly as they weight the point estimate. `n_templates`, `template_sizes` and `ci95_unit` were added, and the old interval is kept as `ci95_question_level`.
+   - *Why:* the old bootstrap resampled the 14 (or 30) question *instances* as if independent, but `agent_eval.build_hard_questions` generates them from 7 templates (3+2+3+2+2+1+1) and `build_questions` from 11 (8+5+5+1+1+3+3+1+1+1+1). Same-template siblings share question type, required tool pattern and failure mode, so the instance-level interval was too narrow.
+   - *Old → new 95% CIs* (point estimates and seed stds are unchanged; only the intervals moved):
+
+     | Model | Set | metric | question-level (old) | template-clustered (new) |
+     |---|---|---|---|---|
+     | llama3.1:8b | hard14 | tool | [0.40, 0.83] | [0.31, 0.92] |
+     | llama3.1:8b | hard14 | answer | [0.29, 0.74] | [0.20, 0.84] |
+     | llama3.1:8b | hard14 | **joint** | [0.19, 0.64] | **[0.08, 0.76]** |
+     | qwen2.5:7b | hard14 | tool | [0.55, 0.95] | [0.43, 0.98] |
+     | qwen2.5:7b | hard14 | answer | [0.45, 0.90] | [0.47, 0.88] |
+     | qwen2.5:7b | hard14 | **joint** | [0.36, 0.86] | **[0.33, 0.86]** |
+     | llama3.1:8b | orig30 | answer / joint | [0.83, 0.99] | [0.77, 1.00] |
+     | qwen2.5:7b | orig30 | tool / answer / joint | [0.94, 1.00] | [0.92, 1.00] |
+
+     Five of the eight intervals widened. qwen's hard-14 *answer* interval came out slightly **narrower** ([0.47, 0.88] vs [0.45, 0.90]): with 7 clusters the bootstrap distribution is coarse and lumpy, which is itself a sign that neither interval should be read precisely.
+   - *Also disclosed (§2.2):* a percentile bootstrap of the mean of 14 near-binary scores undercovers near the ceiling whatever the resampling unit. The earlier single temperature-0 run used an exact Clopper-Pearson interval instead; clustering does not fix this.
+   - *Preserved:* the raw run JSONs, the regrade logic, the point estimates, the seed stds and `per_question_joint_over_seeds`. SOP sentence 4 was updated to the clustered intervals.
+
+12. **`eval_sop/fourier_baseline.py` (new): the yearly-seasonality baseline §3.3 called untested** (round-2 fix phase, 2026-10-04). See §2.4.
+   - *What:* per part and per origin, OLS of demand on `[1, t, sin/cos(2πk·t/365.25) for k = 1, 2]` fit on history up to the origin, q10/q90 from the in-sample residual sd, scored by the same `metrics.py` code path. Writes `results/fourier_preds.csv.gz` and `results/fourier_baseline.json`. No GPU, no paid API, no retraining.
+   - *Why:* `baselines.py:60-61` gave AutoETS and AutoARIMA `season_length=7` on data with **no** weekly pattern while the TFT gets `month`, the generator's only deterministic cycle. The headline comparison was not seasonality-matched, and the asymmetry was disclosed only in §3.3.
+   - *Result (this is a correction, not a confirmation):* FourierYearly MAE **6.673** beats TFT **6.862** — TFT +2.84% MAE, paired 95% CI [+2.07, +3.62], CI excludes 0 — at all four origins. The TFT keeps an 11.5% pinball advantage [−12.3, −10.7] and 0.796 vs 0.976 coverage at half the width. The headline, §3.1, §3.3 and SOP sentence 1 were all rewritten accordingly; "beats every statistical baseline tried" is gone.
+   - *Preserved:* the main table and `summary.json` / `paired_diffs.json` / `per_origin.csv` / `per_part_window_metrics.csv.gz` are untouched (the script only reads the last one), so the 22 × 3 pairwise-comparison count behind the §1 Bonferroni check still holds and every previously audited number still means what it said.
+   - *Not done:* AutoARIMA with `season_length=365` (not tractable on this laptop within budget).
+
+13. **`eval_sop/bonferroni_check.py` (new): multiplicity check for the two headline comparisons** (round-2 fix phase, 2026-10-04).
+   - *What:* re-runs the same paired, part-clustered bootstrap at α/66 (two-sided 0.0379 / 99.9621 percentiles) with B raised to 200,000, since α/66 is not resolvable at B = 2,000. Writes `results/bonferroni_check.json`.
+   - *Why:* §1 now states that the reported CIs are unadjusted over 66 pairwise comparisons (22 pairs × 3 metrics) plus 60 marginal CIs (12 models × 5 metrics). Verified both counts against `paired_diffs.json` and `summary.json`.
+   - *Evidence:* TFT − AutoARIMA ΔMAE **[−1.461, −0.871]** (relative [−17.0%, −11.7%]); TFT − Oracle ΔMAE **[+0.284, +0.441]** (relative [+4.49%, +6.62%]). Both exclude 0.
+   - *Preserved:* nothing regenerated; the committed result files are read-only inputs.
+
+14. **`forecasting/export_forecasts.py`: `_best_checkpoint` accepts an integer `val_loss` and now raises instead of returning `inf`** (round-2 fix phase, 2026-10-04).
+   - *What:* `val_loss=(\d+\.\d+)` → `val_loss=(\d+(?:\.\d+)?)`, and an unparseable name raises `ValueError` rather than being silently scored `inf`.
+   - *Why:* same failure class as change log 9. A checkpoint named `val_loss=4.ckpt` or `val_loss=4` scored `inf`, so a *better* checkpoint was silently never chosen. Returning `inf` is what hid the `-v1` bug for a whole round.
+   - *Evidence:* `eval_sop/test_best_checkpoint.py` grew from 3 to 8 cases (3 integer-loss cases, including one where the integer loss is *not* best, and 2 must-raise cases). 4 of the 5 new cases FAIL on `3b3f701` (`results/test_best_checkpoint_before_r2.txt`) and all 8 PASS after (`results/test_best_checkpoint_after.txt`).
+   - *Preserved:* `-v1`/`-v2` handling, the selection of the lowest loss, and all other export behaviour.
+
+15. **RESULTS.md and README wording corrections** (round-2 fix phase, 2026-10-04).
+   - *What:* §2 per-origin claim now names which TFT variant wins at which origin (verified against `per_origin.csv`: no_meta beats full at 1370, 6.7440 vs 6.7488, and at 1400, 6.9857 vs 7.0198) and scopes "best at every origin" to the models in that table. §2.2 corrects the tool-selection definition for the `pid is None` wildcard (H11/H12, H14). §1 adds the multiplicity and seed-averaging disclosures. §3.3 and §7 now disclose that H6–H10 labels come from an untracked local checkpoint. The headline puts the oracle sentence last, so "its" is unambiguous. README line 217 now says the MAE row is measured on a short-budget retrain, not on the shipped checkpoint.
+   - *Why:* round-2 independent review.
+   - *Preserved:* all result files; these are wording changes plus the new artefacts listed above.
 
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
@@ -302,6 +386,9 @@ OMP_NUM_THREADS=2 SOP_CKPT_DIR=<scratch> $PY -m eval_sop.tft_backtest --variant 
 # separate venv: pip install -r eval_sop/requirements-sf.txt
 OMP_NUM_THREADS=2 NUMBA_NUM_THREADS=2 SF_JOBS=1 venv-sf/Scripts/python.exe -m eval_sop.baselines
 venv-sf/Scripts/python.exe -m eval_sop.metrics           # -> summary.json, paired_diffs.json, per_origin.csv
+# project venv again (numpy/pandas only, no GPU, no statsforecast):
+$PY -m eval_sop.fourier_baseline                         # -> fourier_preds.csv.gz, fourier_baseline.json  (section 2.4)
+$PY -m eval_sop.bonferroni_check                         # -> bonferroni_check.json                        (section 1)
 $PY -m eval_sop.agent_eval --build-questions             # question set (already committed)
 $PY -m eval_sop.agent_eval --build-hard                  # added hard set (already committed)
 for s in 0 1 2; do   # needs Ollama on :11434
@@ -311,4 +398,6 @@ for s in 0 1 2; do   # needs Ollama on :11434
 done   # same for --model qwen2.5:7b
 $PY -m eval_sop.agent_summary
 ```
-Seeds: data 42, TFT 0/1/2 (`pl.seed_everything`), bootstrap 12345, question sampling 2024.
+Seeds: data 42, TFT 0/1/2 (`pl.seed_everything`), bootstrap 12345 (part-level, template-cluster and Bonferroni checks all use it), question sampling 2024, hard-question sampling 7.
+
+**Not reproducible from the repo:** the hard set's forecast labels. H6–H10 are labelled against `results/forecasts_fixed_export.json`, which was produced with an **untracked local checkpoint** (`epoch=01-val_loss=4.5668`, see change log 4). The file is committed so the labels are auditable, but `--build-hard` cannot re-derive them without that checkpoint, and the numbers would differ against the committed in-sample `lib/data/forecasts.json`. Everything else above runs from committed inputs, except that the TFT backtest and the agent runs need a GPU/CPU training budget and a local Ollama respectively.
