@@ -257,7 +257,10 @@ def get_demand_forecast(
     source = "statistical baseline"
     if checkpoint_files:
         try:
-            result = _forecast_with_tft(part_id, part_data, checkpoint_files[0])
+            # Best (lowest val_loss) checkpoint, not glob order (sop-eval fix).
+            from forecasting.export_forecasts import _best_checkpoint
+
+            result = _forecast_with_tft(part_id, part_data, _best_checkpoint(checkpoint_files))
             source = "TFT model"
             _log_forecast_to_mlflow(part_id, result, source)
             return result
@@ -316,7 +319,13 @@ def _forecast_with_tft(part_id: str, part_data: pd.DataFrame, ckpt_path: str) ->
     model = TemporalFusionTransformer.load_from_checkpoint(ckpt_path)
     model.eval()
 
-    part_df = full_df[full_df["part_id"] == part_id]
+    # Append the 30 future days (known covariates only) so the decoder is the
+    # future, not the last 30 observed days (sop-eval fix, same as export).
+    from forecasting.export_forecasts import _append_future_rows
+
+    part_df = _append_future_rows(
+        full_df[full_df["part_id"] == part_id].sort_values("time_idx"), DECODER_LENGTH
+    )
     from pytorch_forecasting import TimeSeriesDataSet
 
     pred_ds = TimeSeriesDataSet.from_dataset(training_ds, part_df, predict=True)

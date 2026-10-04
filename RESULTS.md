@@ -86,7 +86,8 @@ TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. It is the best non-oracle model at
 - **Reproduced first.** `eval_sop/check_export_bug.py` builds the export's exact dataset, `from_dataset(..., part_df, predict=True)` on the full observed data. The decoder covers **time_idx 1431–1460 = 2024-12-02 to 2024-12-31, the last 30 *observed* days**, not the 30 days after the data ends (`results/export_bug_check.json`).
 - Those days are also the validation window that `train.py` used for early stopping. So the committed `lib/data/forecasts.json` is an in-sample fit of already-observed data: p50 MAE 6.72 against those days, p10–p90 coverage 80.6%. The app shows it as "the next 30 days".
 - A second bug was found in the same place: `ckpts[0]` after `sorted()` loads `epoch=00-val_loss=4.6037` instead of the better `epoch=01-val_loss=4.5668`. Both checkpoints exist in the original `forecasting/saved_model/`.
-- `eval_sop/test_export_forecasts.py` runs the real `main()` with a stub model. It **FAILS on 0f94fd1** on both checks (`results/test_export_original_0f94fd1.txt`) and **PASSES after the fix** (`results/test_export_fixed.txt`). The fixed export was also run against the real local checkpoint, and its decoder is 1461–1490. `lib/data/forecasts.json` was **not** regenerated (see "Proposed, not done").
+- `eval_sop/test_export_forecasts.py` runs the real `main()` with a stub model. It **FAILS on 0f94fd1** on both checks (`results/test_export_original_0f94fd1.txt`) and **PASSES after the fix** (`results/test_export_fixed.txt`). The fixed export was also run against the real local checkpoint, and its decoder is 1461–1490. **`lib/data/forecasts.json` was NOT regenerated**, so the deployed web app still serves the old predictions of the last 30 observed days (see "Proposed, not done").
+- The **Streamlit/Python agent path** (`agent/agent.py`, `get_demand_forecast` at line 260 in `0f94fd1`, `_forecast_with_tft` at line 322) had the same two bugs. It is now fixed on this branch (change log 8). `eval_sop/test_agent_forecast_path.py` fails on the old code (decoder 1431–1460, epoch=00 checkpoint; `results/test_agent_forecast_path_before.txt`) and passes after the fix (decoder 1461–1490, best checkpoint; `results/test_agent_forecast_path_after.txt`).
 
 ### 2.2 Agent eval (local Ollama; 3 seeds)
 
@@ -202,7 +203,8 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 ## 4. SOP-ready sentences (strictly true as of this commit)
 1. "On a 200-series synthetic spare-parts dataset, I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 origins × 30 days, 3 seeds). It reduced MAE by 14% versus AutoARIMA (95% CI 13–16%) and kept 80% prediction intervals near nominal coverage (79.6%). Its MAE was about 5.5% above a spike-agnostic oracle built from the data generator."
 2. "I checked the project's claim that the model learns supplier-specific patterns. The synthetic generator assigns supplier, region and category independently of demand (R² 0.022), and an ablation showed these covariates add nothing once part identity is known (ΔMAE +0.05%, 95% CI −0.28% to +0.38%). I corrected the claim in the README."
-3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were in-sample predictions of the last 30 observed days. I added a regression test that fails on the original code and passes after the fix."
+3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were predictions of the last 30 already-observed days (the early-stopping window). I added regression tests that fail on the original code and pass after the fix."
+   - Disclosure for sentence 3: the fix is in the code paths (export script and Streamlit agent). The committed web-app data file `lib/data/forecasts.json` has **not** been regenerated, so the deployed app still shows the old values.
 
 ---
 
@@ -251,6 +253,12 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Evidence:* `results/summary.json`, `results/paired_diffs.json` and `results/provenance.json`. No code was touched, and vitest passes 17/17.
    - *Preserved:* every other README line, including the TFT architecture description and the drift and export sections, which are still listed under "Proposed".
 
+8. **`agent/agent.py`: the Streamlit forecast path now forecasts the future with the best checkpoint** (fix phase, 2026-10-04).
+   - *What:* `get_demand_forecast` now passes `_best_checkpoint(checkpoint_files)`; previously it passed `checkpoint_files[0]` in glob order (line 260 in `0f94fd1`). `_forecast_with_tft` now builds `part_df` with `_append_future_rows(...)`; previously it used the observed frame (line 322). Both helpers are imported from `forecasting/export_forecasts.py`. 11 lines were added and 2 changed.
+   - *Why:* this is the same bug as change log 1. Here glob order on this machine returned `epoch=00` first.
+   - *Evidence:* `eval_sop/test_agent_forecast_path.py` uses a stub model and stubs out MLflow logging. Before the fix it reported FAIL on the decoder (1431–1460) and FAIL on the checkpoint. After the fix it reports PASS on the decoder (1461–1490) and PASS on the checkpoint. vitest passes 17/17.
+   - *Preserved:* the statistical-baseline fallback, the exception handling, MLflow logging and all comments.
+
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
 - `npm ci --ignore-scripts` was run **inside the worktree** to run the existing vitest suite (node 24.14.0). `node_modules/` is gitignored and not committed.
@@ -258,7 +266,7 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 
 ## 6. Proposed, not done
 - **Regenerate `lib/data/forecasts.json`** with the fixed export and a properly trained checkpoint. Not done: it is product data, and the checkpoint is not in git.
-- **`agent/agent.py:_forecast_with_tft`** has the same `predict=True`-on-observed-data bug and also uses `checkpoint_files[0]`. It is the Streamlit path. The fix would be to reuse `_append_future_rows` and `_best_checkpoint`.
+- ~~`agent/agent.py:_forecast_with_tft` has the same bug~~. **Done** in change log 8.
 - **`lib/db/drift.ts`**: compare logged forecasts to *realized* demand over the forecast window, which means storing the forecast date. The current check compares against the historical average.
 - **`forecasting/train.py`**: early-stopping on the validation window and then reporting MAE on that same window is optimistic. Add a held-out test window or a rolling-origin evaluation, and set a seed (`pl.seed_everything`).
 - Add Python tests to CI (`eval_sop/test_export_forecasts.py` is a start).
