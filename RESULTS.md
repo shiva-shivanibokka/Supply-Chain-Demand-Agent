@@ -163,11 +163,11 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - The TFT is about 28% better than the app's own fallback baseline.
 - Its 80% intervals cover 79.6% of the time. The statistical baselines over-cover (90–99%) with intervals 2 to 10 times wider, because the i.i.d. spikes inflate their residual variance.
 - The TFT's MAE is about 5.5% (95% CI 4.9–6.1%) above a spike-agnostic oracle built from the generator. The oracle is a reference point, not a lower bound (its coverage is 0.829).
-- Static metadata covariates do not help: the ablation difference is +0.05% MAE, with a CI spanning 0. This matches the data generator, where they carry no signal.
+- **Given part identity**, static metadata covariates add nothing: the ablation difference is +0.05% MAE (95% CI −0.28% to +0.38%). The ablation **keeps `part_id`**, so it only shows that category, supplier, region, lead time and price add nothing *on top of* a per-part embedding. It does not show that the TFT could not learn supplier effects without part_id. The stronger claim, that there are no supplier or category patterns to learn, rests on the **generator analysis**: attributes are drawn independently of demand, and R² of per-part mean demand on category/supplier/region is 0.022 (adjusted −0.029), see `provenance.json`.
 
 ### 3.2 Not supported
 - Any claim about **real** supply-chain data. The data is synthetic, and the generator happens to be easy for a global model that sees calendar features. The yearly sine is a function of day-of-year, which the TFT gets through `month`. The ARIMA and ETS models used here have only weekly seasonality.
-- The README's "learns supplier-specific patterns" / "Valve parts from SupplierA behave like X". There are none to learn, and the ablation shows no effect.
+- The README's former "supplier-specific patterns" / "Valve parts from SupplierA behave like X" claims. There are none to learn (generator analysis), and the ablation shows the metadata adds nothing given part_id. These README lines were corrected on this branch (change log 7).
 - Claims of "significantly more accurate" *before this eval*: there was no baseline anywhere in the repo. The claim now holds only in the narrow synthetic sense above.
 - Agent quality claims beyond these two small local models on 44 templated questions (§2.2). For example, nothing is known about the deployed providers or about free-form user phrasing.
 - That the deployed web forecasts are forecasts. Until `forecasts.json` is regenerated with the fixed export, they are in-sample.
@@ -201,7 +201,7 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 
 ## 4. SOP-ready sentences (strictly true as of this commit)
 1. "On a 200-series synthetic spare-parts dataset, I evaluated a Temporal Fusion Transformer with a leakage-free rolling-origin backtest (4 origins × 30 days, 3 seeds). It reduced MAE by 14% versus AutoARIMA (95% CI 13–16%) and kept 80% prediction intervals near nominal coverage (79.6%). Its MAE was about 5.5% above a spike-agnostic oracle built from the data generator."
-2. "An ablation showed the model's static supplier, region and category covariates contributed nothing (ΔMAE +0.05%, CI spanning zero). That is consistent with how the synthetic data was generated, and it led me to retract the project's claim that the model learns supplier-specific patterns."
+2. "I checked the project's claim that the model learns supplier-specific patterns. The synthetic generator assigns supplier, region and category independently of demand (R² 0.022), and an ablation showed these covariates add nothing once part identity is known (ΔMAE +0.05%, 95% CI −0.28% to +0.38%). I corrected the claim in the README."
 3. "Evaluating the system end to end, I found and fixed a bug where the exported 'future' forecasts were in-sample predictions of the last 30 observed days. I added a regression test that fails on the original code and passes after the fix."
 
 ---
@@ -241,6 +241,16 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Evidence:* TFT vs AutoARIMA is −14.35% [−15.90, −12.81]; TFT vs Oracle is +5.51% [+4.91, +6.13]. Re-running `metrics.py` left every existing field of `paired_diffs.json` identical, as checked programmatically, and `per_part_window_metrics.csv.gz` identical in content (the file was restored to keep the committed bytes).
    - *Also disclosed:* the AppBaseline ±1.65·sd band is a nominal 90% band scored as q10/q90 (see the §2 caveat).
 
+7. **`README.md`: minimal accuracy and supplier-pattern corrections** (fix phase, 2026-10-04).
+   - *What:* 4 lines changed (`git diff` shows 4 insertions and 4 deletions):
+     - line 217, the accuracy row: now "MAE 6.86 | MAE 9.52" on synthetic data;
+     - line 239, "significantly more accurate": now the measured 28% / 14% lower MAE on synthetic data, untested on real data;
+     - line 249, "Learns 'Valve parts from SupplierA behave like X'": now says the attributes carry no signal in the synthetic data and that removing them did not change accuracy;
+     - line 263, "much more accurate for ... supplier-specific patterns": now gives the measured numbers and says there are no supplier-specific patterns in the synthetic data.
+   - *Why:* those claims were unsupported (no baseline existed) or contradicted by the generator. SOP sentence 2 says the claim was corrected, so the README had to actually change.
+   - *Evidence:* `results/summary.json`, `results/paired_diffs.json` and `results/provenance.json`. No code was touched, and vitest passes 17/17.
+   - *Preserved:* every other README line, including the TFT architecture description and the drift and export sections, which are still listed under "Proposed".
+
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
 - `npm ci --ignore-scripts` was run **inside the worktree** to run the existing vitest suite (node 24.14.0). `node_modules/` is gitignored and not committed.
@@ -253,10 +263,9 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 - **`forecasting/train.py`**: early-stopping on the validation window and then reporting MAE on that same window is optimistic. Add a held-out test window or a rolling-origin evaluation, and set a seed (`pl.seed_everything`).
 - Add Python tests to CI (`eval_sop/test_export_forecasts.py` is a start).
 
-### Proposed README corrections
-- Line 239, "the TFT model is significantly more accurate", and line 263, "much more accurate for parts with ... supplier-specific patterns": replace with the measured numbers above, and state that the data is synthetic.
-- Line 249, "Learns 'Valve parts from SupplierA behave like X'": state that in the synthetic data these attributes carry no signal (ablation ΔMAE ≈ 0).
-- Line 217, "Accuracy: High / Moderate": cite MAE 6.86 vs 9.52, i.e. TFT vs the app baseline, on synthetic data.
+### README corrections
+- **Applied on this branch** (change log 7): lines 217, 239, 249 and 263. These are the accuracy row, "significantly more accurate", "Valve parts from SupplierA behave like X" and "much more accurate for ... supplier-specific patterns". They now cite the measured synthetic-data numbers and say that the attributes carry no signal in the synthetic data.
+- **Still proposed, not done:**
 - Lines 340–346, drift: describe it as a forecast-vs-historical-average consistency check, not drift detection.
 - Line 368, "Loads the best checkpoint": this is true only after this branch's fix.
 
