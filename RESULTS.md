@@ -265,6 +265,11 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
    - *Evidence:* `eval_sop/test_best_checkpoint.py` FAILs the `-v1` case before the fix (`results/test_best_checkpoint_before.txt`) and passes 3/3 after (`results/test_best_checkpoint_after.txt`). `test_export_forecasts` still passes, and vitest passes 17/17.
    - *Preserved:* all other export behaviour.
 
+10. **Results hygiene** (fix phase, 2026-10-04).
+   - *What:* removed absolute machine paths from `results/test_export_original_0f94fd1.txt` and `results/test_export_fixed.txt`; the scratch and temp prefixes are replaced with `<scratch>` / `<tmp>`, and the test logic is unchanged. Added `eval_sop/requirements-sf.txt` (the exact `pip freeze` of the statsforecast venv). Disclosed that "grader written before runs" cannot be verified from git (§2.2).
+   - *Why:* reproducibility and privacy.
+   - *Preserved:* PASS/FAIL lines and decoder ranges are verbatim.
+
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
 - `npm ci --ignore-scripts` was run **inside the worktree** to run the existing vitest suite (node 24.14.0). `node_modules/` is gitignored and not committed.
@@ -292,7 +297,7 @@ $PY -m eval_sop.test_export_forecasts                    # fixed; pass a path to
 $PY -m eval_sop.provenance_oracle
 OMP_NUM_THREADS=2 SOP_CKPT_DIR=<scratch> $PY -m eval_sop.tft_backtest --variant full    --accel gpu   # or --accel cpu
 OMP_NUM_THREADS=2 SOP_CKPT_DIR=<scratch> $PY -m eval_sop.tft_backtest --variant no_meta --accel gpu
-# separate venv: pip install statsforecast==2.1.1
+# separate venv: pip install -r eval_sop/requirements-sf.txt
 OMP_NUM_THREADS=2 NUMBA_NUM_THREADS=2 SF_JOBS=1 venv-sf/Scripts/python.exe -m eval_sop.baselines
 venv-sf/Scripts/python.exe -m eval_sop.metrics           # -> summary.json, paired_diffs.json, per_origin.csv
 $PY -m eval_sop.agent_eval --build-questions             # question set (already committed)
