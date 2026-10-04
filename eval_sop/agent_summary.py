@@ -8,6 +8,11 @@ Per model x question set: mean +- std over the 3 seeds for
 and a 95% CI from a question-level bootstrap (resample questions, 2,000 reps,
 seed 12345; each question's score averaged over seeds).
 
+Answers are RE-GRADED here from the raw final answers with the current
+grader (agent_eval.grade_any / tool_correct); the stored per-record flags in
+the raw JSONs are left untouched (they reflect the grader at run time).
+records_regraded counts how many flags changed.
+
 Usage: python -m eval_sop.agent_summary
 """
 import glob
@@ -17,6 +22,7 @@ import re
 
 import numpy as np
 
+from eval_sop.agent_eval import HARD_QPATH, QPATH, grade_any, tool_correct
 from eval_sop.common import RESULTS
 
 
@@ -27,6 +33,17 @@ def main():
         m = re.search(r"agent_eval_(.+)_(orig30|hard14)_t07_s(\d)\.json", os.path.basename(f))
         d = json.load(open(f))
         groups.setdefault((d["summary"]["model"], m.group(2)), []).append(d)
+    qbank = {str(q["id"]): q for path in (QPATH, HARD_QPATH) for q in json.load(open(path))}
+    changed = 0
+    for runs in groups.values():
+        for run in runs:
+            for rec in run["records"]:
+                q = qbank[str(rec["id"])]
+                a = bool(grade_any(q, rec["final_answer"]))
+                t = bool(tool_correct(q, rec["tool_calls"]))
+                changed += (a != rec["answer_correct"]) + (t != rec["tool_correct"])
+                rec["answer_correct"], rec["tool_correct"] = a, t
+    print("records_regraded (flags changed vs stored):", changed)
     rng = np.random.default_rng(12345)
     out = []
     for (model, qset), runs in sorted(groups.items()):

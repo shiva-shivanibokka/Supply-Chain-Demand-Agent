@@ -100,8 +100,9 @@ TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. It is the best non-oracle model at
   - a count of CRITICAL parts in the top 10 (H14).
 - Forecast answers for H6–H10 use the **corrected export** (`results/forecasts_fixed_export.json`, the 30 days after 2024-12-31), and the forecast tool is pointed at it with `--forecasts`. With the committed in-sample `lib/data/forecasts.json`, the correct answers would be different numbers.
 
-**Scoring.** The answer grader was fixed before the runs:
-- A numeric answer passes if any number in the reply is within ±0.5 (integers) or ±0.05 (decimals). For H1–H3 and H6–H8, the sign may be expressed in words.
+**Scoring.** The answer grader was written before the runs (this cannot be verified from git, because the harness commit `e406734` and the results commit `c9220ec` landed at the same time). It was corrected after the runs (see change log 5), and every number below is **re-graded from the raw final answers** by `eval_sop/agent_summary.py`:
+- A numeric answer passes if any number in the reply is within ±0.5 (integers) or ±0.05 (decimals).
+- For H1–H3 and H6–H8, the **direction must also be right**: either a signed number, or direction words in the sentence that holds the number ("more", "exceeds" vs "fewer", "short"), taking into account which part is the sentence's subject. The original grader compared only absolute values.
 - Risk labels must match exactly. ID questions need every ID.
 
 The grader is lenient. Most visibly, an answer that lists *every* supplier's rate passes H11 and H12. So I also report **joint** (all required tool calls made with the right part_id **and** the answer passes). Joint was added after seeing outputs, as a stricter view; it is not a re-grade.
@@ -117,7 +118,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 | llama3.1:8b | original 30 | 1.000 ± 0.000 [1.00, 1.00] | 0.922 ± 0.077 [0.83, 0.99] | 0.922 ± 0.077 [0.83, 0.99] |
 | qwen2.5:7b | original 30 | 0.978 ± 0.019 [0.94, 1.00] | 0.978 ± 0.019 [0.94, 1.00] | 0.978 ± 0.019 [0.94, 1.00] |
 | llama3.1:8b | **added hard 14** | 0.619 ± 0.041 [0.40, 0.83] | 0.524 ± 0.082 [0.29, 0.74] | **0.405 ± 0.109** [0.19, 0.64] |
-| qwen2.5:7b | **added hard 14** | 0.762 ± 0.041 [0.55, 0.95] | 0.762 ± 0.041 [0.55, 0.95] | **0.690 ± 0.041** [0.43, 0.90] |
+| qwen2.5:7b | **added hard 14** | 0.762 ± 0.041 [0.55, 0.95] | 0.690 ± 0.041 [0.45, 0.90] | **0.619 ± 0.041** [0.36, 0.86] |
 
 **Earlier run.** On 2026-10-01, qwen2.5:7b ran on the original 30 at temperature 0 / seed 0 through the OpenAI-compatible endpoint. It scored 30/30 on tools and 30/30 on answers (Clopper-Pearson [0.88, 1.00]); see `results/agent_eval_qwen2_5_7b.json`. A llama3.1:8b-instruct-q8_0 run from that day did not finish and has no result.
 
@@ -128,6 +129,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - **Stock vs forecast (H6–H8).** llama often skipped the forecast tool and approximated the forecast as avg_daily × 30.
 
 *Wrong arithmetic or reading:*
+- **H2 (direction).** On all 3 seeds qwen answered "PART_102 has 351 more units than PART_167". The truth is 351 *fewer*. The original grader passed this; the corrected grader does not.
 - **H9 and H10 (order quantity).** Both models often answered with the p90 total and did not subtract stock.
 - **H14 (count of CRITICAL parts).** Both models miscounted, answering 6 instead of 7.
 
@@ -136,7 +138,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 
 **Original 30.** The errors were llama finishing with meta-text and no answer, mainly on the list and forecast questions.
 
-**Interpretation.** Single-lookup relaying is near ceiling for both 7–8B local models. Multi-step questions that combine tools and arithmetic drop to 40–69% joint accuracy. These are small local models; the app's intended providers (Groq gpt-oss, Claude) were not tested.
+**Interpretation.** Single-lookup relaying is near ceiling for both 7–8B local models. Multi-step questions that combine tools and arithmetic drop to 40–62% joint accuracy (llama 0.405, qwen 0.619). These are small local models; the app's intended providers (Groq gpt-oss, Claude) were not tested.
 
 - **Paid or other runs (not done):**
   - The app's default provider is Groq (`openai/gpt-oss-20b/120b`). That would be **$0 on the free tier**, but no Groq key exists on this machine.
@@ -174,7 +176,7 @@ The grader is lenient. Most visibly, an answer that lists *every* supplier's rat
 - **Stale checkpoint directories.** Runs killed on 2026-10-01 (full o1400 s0 and no_meta o1400 s1) left checkpoint files behind. The reruns loaded their *own* best checkpoint: Lightning wrote `...-v1.ckpt` on a name clash, and `best_model_path` points to the current run.
 - **Bootstrap.** Parts are resampled, so dependence across origins within a part is kept. The 4 origins are not resampled, so uncertainty about time periods is understated.
 - **The oracle ignores spikes and uses Gaussian quantiles.** It is a reference point, not a true lower bound. Its coverage is 0.83.
-- **The agent eval is a Python port**, not the TypeScript runtime. The grading is lenient: a number anywhere in the reply counts. The hard set was written *after* seeing the ceiling result; its templates were designed to be harder, but no question was dropped or tuned after any model was run on it. Temperature 0.7 differs from the earlier temperature-0 run. n = 14 hard questions gives wide CIs.
+- **The agent eval is a Python port**, not the TypeScript runtime. The grading is lenient: a number anywhere in the reply counts, apart from the direction check on H1–H3 and H6–H8. The hard set was written *after* seeing the ceiling result; its templates were designed to be harder, but no question was dropped or tuned after any model was run on it. Temperature 0.7 differs from the earlier temperature-0 run. n = 14 hard questions gives wide CIs.
 
 ### 3.4 CPU vs GPU replicate
 I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to train, against 196 s on GPU. The replicate is stored separately in `results/cpu_replicate/` and is **not** used in the main table.
@@ -221,6 +223,13 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
      - qwen hard seeds 1 and 2 were re-run after the fix. Seed 0 and all llama runs never hit this path, so they are unaffected.
    - *Preserved:* the original 30 questions, their grader and `results/agent_eval_qwen2_5_7b.json` are unchanged.
 4. **`eval_sop/results/forecasts_fixed_export.json`**: the output of the fixed export, run on the original repo's local (untracked) `epoch=01-val_loss=4.5668` checkpoint. Used only as the forecast source for H6–H10.
+
+5. **`eval_sop/agent_eval.py`: the `abs_number` grader now checks direction** (fix phase, 2026-10-04, after an independent review).
+   - *What:* `grade_any` / `claimed_sign` / `_subject_flip`. The magnitude must match **and** the claimed direction must match the truth. Direction comes from a signed number, or from direction words in the sentence that holds the number, adjusted for which part is the sentence's subject. If no direction can be determined, the answer fails. `agent_summary.py` now **re-grades every record from the raw final answers**; the raw run JSONs are untouched.
+   - *Why:* the old check (`abs(abs(v) - abs(answer))`, at `agent_eval.py:299-300` in `c9220ec`) ignored direction. qwen's H2 answer, which got the direction wrong, was graded correct on all 3 seeds.
+   - *Evidence:* `eval_sop/test_agent_grader.py` (11 cases) gives 5 FAIL on `c9220ec` (`results/test_agent_grader_before.txt`) and 11/11 PASS after the fix (`results/test_agent_grader_after.txt`). The re-grade changed exactly 3 flags, qwen H2 on seeds 0–2. qwen hard14 moved from answer 0.762 to **0.690**, and joint from 0.690 to **0.619 ± 0.041 [0.36, 0.86]**.
+   - *Not a change for llama:* the review said llama is unchanged, which is true, but a first version of the fix would have wrongly failed llama's H2. llama wrote "PART_167 has 351 more than PART_102", which is the correct direction with the subject reversed. I added a subject-order rule and a test case for it, and llama's H2 stays correct.
+   - *Preserved:* the original-30 grading kinds and all raw outputs.
 
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.

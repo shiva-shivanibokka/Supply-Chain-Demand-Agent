@@ -295,9 +295,58 @@ def build_hard_questions():
     print(f"wrote {len(qs)} hard questions to {HARD_QPATH}")
 
 
+POS_WORDS = r"\b(more|exceeds?|exceeding|exceeded|surplus|above|greater|higher)\b"
+NEG_WORDS = r"\b(fewer|less|short|shortfall|deficit|below|lower)\b"
+
+
+def _subject_flip(sent, parts):
+    """For 'how many more does A have than B': if the sentence names B before A
+    ('B has N more than A'), the direction words refer to B, so flip."""
+    if len(parts) == 2 and parts[0] in sent and parts[1] in sent:
+        return -1 if sent.index(parts[1]) < sent.index(parts[0]) else 1
+    return 1
+
+
+def claimed_sign(final, magnitude, parts=()):
+    """Direction the answer claims for the number whose |value| == magnitude:
+    -1 / +1, or 0 if it cannot be determined. A signed number wins; otherwise
+    direction words in the sentence containing that number; otherwise
+    direction words in the whole answer. Both polarities present -> 0."""
+    signs = set()
+    for v in nums_in(final):
+        if abs(abs(v) - magnitude) <= 0.5 and v < 0:
+            return -1
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", final)
+    for sent in sentences:
+        if any(abs(abs(v) - magnitude) <= 0.5 for v in nums_in(sent)):
+            p, n = re.search(POS_WORDS, sent, re.I), re.search(NEG_WORDS, sent, re.I)
+            flip = _subject_flip(sent, parts)
+            if p and not n:
+                signs.add(1 * flip)
+            elif n and not p:
+                signs.add(-1 * flip)
+    if len(signs) == 1:
+        return signs.pop()
+    if signs:
+        return 0
+    p, n = re.search(POS_WORDS, final, re.I), re.search(NEG_WORDS, final, re.I)
+    if p and not n:
+        return 1
+    if n and not p:
+        return -1
+    return 0
+
+
 def grade_any(q, final):
-    if q["kind"] == "abs_number":  # sign may be phrased as "short by"/"exceeds by"
-        return any(abs(abs(v) - abs(q["answer"])) <= 0.5 for v in nums_in(final))
+    if q["kind"] == "abs_number":
+        # magnitude AND direction must be right; direction from a signed number or
+        # direction words (fixed 2026-10-04: previously only |value| was compared).
+        mag = abs(q["answer"])
+        if not any(abs(abs(v) - mag) <= 0.5 for v in nums_in(final)):
+            return False
+        truth = (q["answer"] > 0) - (q["answer"] < 0)
+        parts = re.findall(r"PART_\d{3}", q["q"])
+        return truth == 0 or claimed_sign(final, mag, parts) == truth
     if q["kind"] == "id_and_number":
         pid, val = q["answer"]
         tol = 0.05 if not float(val).is_integer() else 0.5

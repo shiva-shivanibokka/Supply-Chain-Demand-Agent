@@ -1,0 +1,13 @@
+grader under test: eval_sop/agent_eval.py (fixed)
+[PASS] wrong direction (qwen H2): expected False, got False
+[PASS] direction words, correct: expected True, got True
+[PASS] reversed subject, correct (llama H2): expected True, got True
+[PASS] reversed subject, wrong: expected False, got False
+[PASS] signed number, correct: expected True, got True
+[PASS] no direction given: expected False, got False
+[PASS] wrong magnitude: expected False, got False
+[PASS] short by, correct: expected True, got True
+[PASS] exceeds, wrong: expected False, got False
+[PASS] exceeds, correct: expected True, got True
+[PASS] short, wrong: expected False, got False
+exit=0
