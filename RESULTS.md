@@ -112,7 +112,7 @@ TFT MAE by origin: 6.98 / 6.75 / 7.02 / 6.70. The two TFT variants are the best 
   - a count of CRITICAL parts in the top 10 (H14).
 - Forecast answers for H6–H10 use the **corrected export** (`results/forecasts_fixed_export.json`, the 30 days after 2024-12-31), and the forecast tool is pointed at it with `--forecasts`. With the committed in-sample `lib/data/forecasts.json`, the correct answers would be different numbers.
 
-**Scoring.** The answer grader was written before the runs (this cannot be verified from git, because the harness commit `e406734` and the results commit `c9220ec` landed at the same time). It was corrected after the runs (see change log 5), and every number below is **re-graded from the raw final answers** by `eval_sop/agent_summary.py`:
+**Scoring.** The answer grader was written before the runs (this cannot be verified from git, because the harness commit `8271273` and the results commit `8864cad` landed at the same time). It was corrected after the runs (see change log 5), and every number below is **re-graded from the raw final answers** by `eval_sop/agent_summary.py`:
 - A numeric answer passes if any number in the reply is within ±0.5 (integers) or ±0.05 (decimals).
 - For H1–H3 and H6–H8, the **direction must also be right**: either a signed number, or direction words in the sentence that holds the number ("more", "exceeds" vs "fewer", "short"), taking into account which part is the sentence's subject. The original grader compared only absolute values.
 - Risk labels must match exactly. ID questions need every ID.
@@ -250,12 +250,12 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 
 ## 5. Change log (one entry per change on this branch)
 
-1. **`forecasting/export_forecasts.py`: forecast the future, and load the best checkpoint** (commit `28552cd`).
+1. **`forecasting/export_forecasts.py`: forecast the future, and load the best checkpoint** (commit `e7cea79`).
    - *What:* added `_append_future_rows()`, which appends 30 rows after the last observed day carrying only known covariates (calendar features and static attributes; the unknown reals are placeholders the decoder never sees). Added `_best_checkpoint()`, which picks the lowest `val_loss` from the filename. Added env overrides `EXPORT_CKPT_DIR` / `EXPORT_OUT` so the export can be tested without touching `lib/data/` or `forecasting/saved_model/`. Added a print of the first decoder range.
    - *Why:* the export forecast the in-sample window (§2.1), and `sorted()[0]` picked the oldest checkpoint, not the best one.
    - *Evidence:* the original lines were `export_forecasts.py:67` `from_dataset(training_ds, part_df, predict=True)` with `part_df = full_df[...]`, and `:50` `ckpt = ckpts[0]`. `eval_sop/test_export_forecasts.py` fails on 0f94fd1 and passes after the fix. The real-checkpoint export logs `decoder time_idx 1461..1490`. vitest is 17/17 before the commit.
    - *Preserved:* every existing comment and docstring, `_sanity_check`, the output format, and the defaults (`lib/data/forecasts.json`, `forecasting/saved_model`).
-2. **`eval_sop/` (new, evaluation only)** (commits `18f6320` and `d89540d`).
+2. **`eval_sop/` (new, evaluation only)** (commits `31cf00a` and `cbbf25e`).
    - *What:* the backtest, baselines, metrics, provenance, export check and agent harness.
    - *Why:* the eval itself.
    - *Preserved:* no product code touched.
@@ -272,8 +272,8 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 
 5. **`eval_sop/agent_eval.py`: the `abs_number` grader now checks direction** (fix phase, 2026-10-04, after an independent review).
    - *What:* `grade_any` / `claimed_sign` / `_subject_flip`. The magnitude must match **and** the claimed direction must match the truth. Direction comes from a signed number, or from direction words in the sentence that holds the number, adjusted for which part is the sentence's subject. If no direction can be determined, the answer fails. `agent_summary.py` now **re-grades every record from the raw final answers**; the raw run JSONs are untouched.
-   - *Why:* the old check (`abs(abs(v) - abs(answer))`, at `agent_eval.py:299-300` in `c9220ec`) ignored direction. qwen's H2 answer, which got the direction wrong, was graded correct on all 3 seeds.
-   - *Evidence:* `eval_sop/test_agent_grader.py` (11 cases) gives 5 FAIL on `c9220ec` (`results/test_agent_grader_before.txt`) and 11/11 PASS after the fix (`results/test_agent_grader_after.txt`). The re-grade changed exactly 3 flags, qwen H2 on seeds 0–2. qwen hard14 moved from answer 0.762 to **0.690**, and joint from 0.690 to **0.619 ± 0.041 [0.36, 0.86]**.
+   - *Why:* the old check (`abs(abs(v) - abs(answer))`, at `agent_eval.py:299-300` in `8864cad`) ignored direction. qwen's H2 answer, which got the direction wrong, was graded correct on all 3 seeds.
+   - *Evidence:* `eval_sop/test_agent_grader.py` (11 cases) gives 5 FAIL on `8864cad` (`results/test_agent_grader_before.txt`) and 11/11 PASS after the fix (`results/test_agent_grader_after.txt`). The re-grade changed exactly 3 flags, qwen H2 on seeds 0–2. qwen hard14 moved from answer 0.762 to **0.690**, and joint from 0.690 to **0.619 ± 0.041 [0.36, 0.86]**.
    - *Not a change for llama:* the review said llama is unchanged, which is true, but a first version of the fix would have wrongly failed llama's H2. llama wrote "PART_167 has 351 more than PART_102", which is the correct direction with the subject reversed. I added a subject-order rule and a test case for it, and llama's H2 stays correct.
    - *Preserved:* the original-30 grading kinds and all raw outputs.
 
@@ -307,7 +307,9 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 
 10. **Results hygiene** (fix phase, 2026-10-04).
    - *What:* removed absolute machine paths from `results/test_export_original_0f94fd1.txt` and `results/test_export_fixed.txt`. The scratch and temp prefixes are replaced with `<scratch>` / `<tmp>` and the test logic is unchanged. Added `eval_sop/requirements-sf.txt` (the exact `pip freeze` of the statsforecast venv). Disclosed that "grader written before runs" cannot be verified from git (§2.2).
-   - *History:* the scrub originally applied only to HEAD, so earlier commits in this branch still carried the paths. The branch history was then rewritten (`git filter-branch --index-filter`) to replace both files with their scrubbed versions in every commit that contains them; the final tree is byte-identical to before the rewrite, and no absolute machine path remains in any commit reachable from this branch.
+   - *History:* the scrub originally applied only to HEAD, so earlier commits in this branch still carried the paths. That earlier "HEAD only / must be squashed or rewritten before publication" position is **superseded**: the branch history was then rewritten (recorded as `git filter-branch --index-filter`) to replace both files with their scrubbed versions in every commit that contains them.
+   - *Re-verified 2026-10-04, independently of the rewrite:* iterating **every one of the 69 commits reachable from HEAD** and running `git grep -I -i -e '<user>' -e 'C:[\/]Users' -e AppData -e OneDrive <commit>` returns **no hit in any commit's tracked content**, and `git log HEAD --format='%H%n%B'` over the same range contains no machine path either, so commit messages are clean too. A pre-rewrite backup of this history is kept locally on branch **`backup/pre-filter-supplychain`** (head `18c6478`, a pre-rewrite SHA and therefore deliberately *not* reachable from HEAD). `git diff --stat HEAD backup/pre-filter-supplychain` reports exactly one differing tracked path, `RESULTS.md` itself, which has been edited *after* the rewrite to document it (this paragraph and change log 16); that file therefore keeps diverging from the backup as this document is corrected, and the line count is not a fixed number. **Every other path in the tree is byte-identical to the pre-rewrite tree** — that is what "the tree was preserved" means here.
+   - *Note on checking whether a commit hash in this document is current:* a bare `git cat-file -e <sha>` is **not** a valid staleness check. The `backup/*` branch keeps the pre-rewrite objects alive, so `cat-file -e` succeeds for superseded SHAs as well. Use `git merge-base --is-ancestor <sha> HEAD`; a non-ancestor is stale.
    - *Why:* reproducibility and privacy.
    - *Preserved:* PASS/FAIL lines and decoder ranges are verbatim.
 
@@ -347,13 +349,19 @@ I re-ran `full`, origin 1430, seed 0 on CPU with 2 threads; it took 1,220 s to t
 14. **`forecasting/export_forecasts.py`: `_best_checkpoint` accepts an integer `val_loss` and now raises instead of returning `inf`** (round-2 fix phase, 2026-10-04).
    - *What:* `val_loss=(\d+\.\d+)` → `val_loss=(\d+(?:\.\d+)?)`, and an unparseable name raises `ValueError` rather than being silently scored `inf`.
    - *Why:* same failure class as change log 9. A checkpoint named `val_loss=4.ckpt` or `val_loss=4` scored `inf`, so a *better* checkpoint was silently never chosen. Returning `inf` is what hid the `-v1` bug for a whole round.
-   - *Evidence:* `eval_sop/test_best_checkpoint.py` grew from 3 to 8 cases (3 integer-loss cases, including one where the integer loss is *not* best, and 2 must-raise cases). 4 of the 5 new cases FAIL on `3b3f701` (`results/test_best_checkpoint_before_r2.txt`) and all 8 PASS after (`results/test_best_checkpoint_after.txt`).
+   - *Evidence:* `eval_sop/test_best_checkpoint.py` grew from 3 to 8 cases (3 integer-loss cases, including one where the integer loss is *not* best, and 2 must-raise cases). 4 of the 5 new cases FAIL on `aaa7a06` (`results/test_best_checkpoint_before_r2.txt`) and all 8 PASS after (`results/test_best_checkpoint_after.txt`).
    - *Preserved:* `-v1`/`-v2` handling, the selection of the lowest loss, and all other export behaviour.
 
 15. **RESULTS.md and README wording corrections** (round-2 fix phase, 2026-10-04).
    - *What:* §2 per-origin claim now names which TFT variant wins at which origin (verified against `per_origin.csv`: no_meta beats full at 1370, 6.7440 vs 6.7488, and at 1400, 6.9857 vs 7.0198) and scopes "best at every origin" to the models in that table. §2.2 corrects the tool-selection definition for the `pid is None` wildcard (H11/H12, H14). §1 adds the multiplicity and seed-averaging disclosures. §3.3 and §7 now disclose that H6–H10 labels come from an untracked local checkpoint. The headline puts the oracle sentence last, so "its" is unambiguous. README line 217 now says the MAE row is measured on a short-budget retrain, not on the shipped checkpoint.
    - *Why:* round-2 independent review.
    - *Preserved:* all result files; these are wording changes plus the new artefacts listed above.
+
+16. **Commit hashes in this file re-pointed after the history rewrite; privacy-position paragraph updated** (documentation only, 2026-10-04).
+   - *What:* the `filter-branch` rewrite changed every commit SHA on this branch while preserving the final tree, so six short hashes cited in §2.2 and §5 pointed at objects that are no longer reachable from HEAD. Re-pointed by matching commit subjects: `18f6320`→`31cf00a`, `28552cd`→`e7cea79`, `3b3f701`→`aaa7a06`, `c9220ec`→`8864cad`, `d89540d`→`cbbf25e`, `e406734`→`8271273`. `0f94fd1` was already reachable and is unchanged. Change log 10 now states the verified history position and records that `git cat-file -e` cannot detect a stale hash.
+   - *Why:* a document that cites unreachable SHAs is not auditable, and the superseded "HEAD only" wording understated the scrub.
+   - *Evidence:* each replacement passes both `git cat-file -e <new>^{commit}` and `git merge-base --is-ancestor <new> HEAD`; each replaced hash fails the ancestor test. The 69-commit tree scan and commit-message scan behind change log 10 were run for this entry.
+   - *Preserved:* no code, no result file and no number changed; only hash tokens and the change log 10 history/verification wording.
 
 ### Deviations from the requested rules, disclosed
 - **statsforecast was installed into a separate scratchpad venv** (`venv-sf`: Python 3.12.3 from anaconda, statsforecast 2.1.1, numpy 2.5.3, pandas 2.3.3, numba 0.68.0), **not** the repo's `venv/`. statsforecast pulls newer numpy and pandas. Installing it into `venv/` (numpy 1.26.4, pandas 2.1.4, torch 2.5.1+cu121, pytorch-forecasting 1.7.0, lightning 2.2.5) would have upgraded the dependencies the TFT stack is pinned to. Nothing global or system-wide was changed.
