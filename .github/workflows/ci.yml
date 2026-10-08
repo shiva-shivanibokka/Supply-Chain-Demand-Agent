@@ -34,6 +34,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          # This repo's deps live in requirements-local.txt, which the default
+          # glob (**/requirements.txt, **/pyproject.toml) does not match, so
+          # `cache: pip` alone fails the step outright with "No file ...
+          # matched" before anything installs.
+          cache-dependency-path: requirements-local.txt
       - name: Install CPU torch + the deps these tests need
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
