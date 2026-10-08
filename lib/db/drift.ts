@@ -1,5 +1,19 @@
 // Ported from mlops/mlops_cloud.py `compute_drift_metrics`.
 // Takes the log rows as an argument (no DB access here) so it's unit-testable.
+//
+// NAMING, stated plainly because the name overclaims: this is NOT drift
+// detection. Drift means the live input or output distribution has moved away
+// from the one the model was trained on, which needs two distributions
+// compared over time. What this computes is a single accuracy check of logged
+// p50 predictions against each part's *historical* `avg_daily_demand` -- a
+// static per-part constant, not a realised future outcome -- with "predict the
+// global mean for every part" as the baseline.
+//
+// It therefore cannot detect drift, and a WARNING here means only "logged
+// predictions sit further from the historical per-part average than a
+// global-mean predictor does". The two MAEs are also computed over different
+// populations (model MAE over matched/logged parts, baseline over all parts),
+// so the flag is a demo-grade heuristic. The UI says so where it is displayed.
 
 export type DriftInputRow = {
   partId: string;

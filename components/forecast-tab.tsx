@@ -70,6 +70,9 @@ export function buildForecastSeries(lastDate: string, forecast: ForecastResponse
 
 const SOURCE_BADGE_CLASS: Record<string, string> = {
   "TFT model": "bg-[#2a78d6]/15 text-[#2a78d6]",
+  // Amber, not blue: this series is an in-sample fit and should not read as a
+  // clean model result. See TFT_FORECASTS_ARE_IN_SAMPLE in lib/tools/forecast.ts.
+  "TFT model (in-sample fit, not a forecast)": "bg-amber-500/15 text-amber-700",
   "statistical baseline": "bg-muted text-muted-foreground",
 };
 
@@ -134,6 +137,33 @@ export function ForecastTab() {
           </Badge>
         )}
       </div>
+
+      {/* The committed TFT series predicts days the model had already seen, and
+          one of them is the early-stopping window. A reader looking at the chart
+          has to be told that before reading the numbers, not after. */}
+      {forecast?.source.includes("in-sample") && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-800">
+          <strong className="font-semibold">
+            These are not predictions of future days.
+          </strong>{" "}
+          The committed TFT output is an in-sample fit of the last 30{" "}
+          <em>already-observed</em> days (2024-12-02 to 2024-12-31), which are
+          also the window training used for early stopping — p50 MAE 6.72,
+          p10–p90 coverage 80.6% against days the model selected on. The export
+          bug behind this is fixed in code, but the data file has not been
+          regenerated because that needs a trained checkpoint which is not in
+          the repository. Details in{" "}
+          <a
+            className="underline underline-offset-2"
+            href="https://github.com/shiva-shivanibokka/Supply-Chain-Demand-Agent/blob/main/RESULTS.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            RESULTS.md
+          </a>
+          .
+        </div>
+      )}
 
       <Card size="sm">
         <CardHeader>

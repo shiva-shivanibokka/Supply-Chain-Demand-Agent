@@ -95,7 +95,9 @@ export function MlopsTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-foreground">Prediction log &amp; drift monitoring</h2>
+        <h2 className="text-sm font-medium text-foreground">
+          Prediction log &amp; accuracy check
+        </h2>
         <Button variant="outline" size="sm" onClick={refresh}>
           Refresh
         </Button>
@@ -108,11 +110,23 @@ export function MlopsTab() {
           <Card size="sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
-                Drift status
+                Predictions vs historical average
                 <Badge variant="outline" className={STATUS_BADGE_CLASS[data.drift.status]}>
                   {data.drift.status}
                 </Badge>
               </CardTitle>
+              {/* The computation compares logged p50s to a static per-part
+                  historical mean, with a global-mean predictor as baseline. That
+                  is an accuracy check, not drift detection, and the heading used
+                  to claim the latter. */}
+              <p className="px-1 pt-1 text-xs leading-relaxed text-muted-foreground">
+                Not drift detection: this compares logged p50 predictions against
+                each part&apos;s <em>historical</em> average daily demand, not
+                against realised future demand, using &ldquo;predict the global
+                mean&rdquo; as the baseline. The two MAEs are computed over
+                different sets of parts, so treat the status as a demo-grade
+                heuristic rather than a monitoring signal.
+              </p>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Field label="Predictions scored" value={String(data.drift.nPredictions)} />

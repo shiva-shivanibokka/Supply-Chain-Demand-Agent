@@ -20,3 +20,28 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+
+  # No Python ran in CI at all, so the regression tests written for the export
+  # bug -- the one that made the committed "forecasts" predictions of the last
+  # 30 already-observed days -- were never enforced. They are scripts, not
+  # pytest cases: each exits 0 on pass, which is why `pytest eval_sop` collects
+  # nothing and why they were easy to miss.
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU torch + the deps these tests need
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-local.txt
+      - name: Export-bug and agent regression tests
+        run: |
+          set -e
+          python -m eval_sop.test_best_checkpoint
+          python -m eval_sop.test_agent_grader
+          python -m eval_sop.test_export_forecasts
+          python -m eval_sop.test_agent_forecast_path
