@@ -2,6 +2,8 @@
 
 An end-to-end agentic AI system for supply chain demand forecasting. Built for capital equipment and semiconductor manufacturing companies managing large inventories of spare parts.
 
+> **Measured evaluation: [`RESULTS.md`](RESULTS.md)** — give the baselines the seasonality the TFT already had and the point-accuracy win disappears: a yearly-Fourier baseline reaches **MAE 6.673** against the TFT's 6.862, so the TFT is 2.8% *worse* where the original framing claimed 14% better. The calibration win survives.
+
 The system forecasts 30-day part demand, answers natural language questions using a retrieval-augmented (RAG) tool over internal supply chain documents, and acts autonomously through an AI agent that decides which tools to call to answer a question.
 
 The project has two layers:
