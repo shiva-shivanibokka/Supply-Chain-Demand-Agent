@@ -1,0 +1,16 @@
+{
+ "variant": "full",
+ "seed": 0,
+ "origin": 1400,
+ "train_seconds": 740.4,
+ "epochs_run": 6,
+ "best_inner_val_loss": 4.5703206062316895,
+ "best_ckpt": "epoch=3-step=600-v1.ckpt",
+ "n_train_samples": 280000,
+ "batches_per_epoch": 150,
+ "batch_size": 128,
+ "max_epochs": 6,
+ "device": "cpu",
+ "torch_threads": 2,
+ "torch_version": "2.5.1+cu121"
+}

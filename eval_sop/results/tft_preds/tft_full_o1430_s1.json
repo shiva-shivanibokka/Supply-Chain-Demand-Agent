@@ -1,0 +1,17 @@
+{
+ "variant": "full",
+ "seed": 1,
+ "origin": 1430,
+ "train_seconds": 196.2,
+ "epochs_run": 6,
+ "best_inner_val_loss": 4.791353702545166,
+ "best_ckpt": "epoch=3-step=600.ckpt",
+ "n_train_samples": 286000,
+ "batches_per_epoch": 150,
+ "batch_size": 128,
+ "max_epochs": 6,
+ "device": "gpu",
+ "torch_threads": 2,
+ "cuda_peak_alloc_mb": 253.31640625,
+ "torch_version": "2.5.1+cu121"
+}

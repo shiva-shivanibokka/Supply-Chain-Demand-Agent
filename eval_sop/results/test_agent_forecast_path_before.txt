@@ -1,0 +1,7 @@
+(agent/agent.py at commit 0a49117, before the fix)
+file under test : agent\agent.py
+last observed time_idx = 1460; decoder = (1431, 1460)
+[PASS] TFT path used
+[FAIL] decoder starts at last_observed+1
+[FAIL] best checkpoint loaded (got tft-best-epoch=00-val_loss=4.6037.ckpt)
+exit=1

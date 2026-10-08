@@ -1,0 +1,667 @@
+{
+ "summary": {
+  "model": "llama3.1:8b",
+  "runtime": "ollama (local), api=native",
+  "num_ctx": 8192,
+  "temperature": 0.7,
+  "seed": 2,
+  "questions": "agent_questions.json",
+  "forecasts": "lib/data/forecasts.json",
+  "n_questions": 30,
+  "tool_selection_accuracy": 1.0,
+  "first_tool_correct": 1.0,
+  "answer_accuracy": 0.9666666666666667,
+  "no_tool_call": 0,
+  "by_tool": {
+   "get_inventory_status": {
+    "n": 20,
+    "tool_acc": 20,
+    "ans_acc": 19
+   },
+   "get_demand_forecast": {
+    "n": 6,
+    "tool_acc": 6,
+    "ans_acc": 6
+   },
+   "search_knowledge_base": {
+    "n": 4,
+    "tool_acc": 4,
+    "ans_acc": 4
+   }
+  }
+ },
+ "records": [
+  {
+   "id": 1,
+   "question": "How many units of PART_121 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 945,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "top_n": "0",
+      "part_id": "PART_121"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 945 units of PART_121 in stock.",
+   "seconds": 6.2
+  },
+  {
+   "id": 2,
+   "question": "How many units of PART_047 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1477,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "top_n": "1",
+      "part_id": "PART_047"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1477 units of PART_047 in stock.",
+   "seconds": 5.6
+  },
+  {
+   "id": 3,
+   "question": "How many units of PART_187 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1530,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_187",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1530 units of PART_187 in stock.",
+   "seconds": 5.5
+  },
+  {
+   "id": 4,
+   "question": "How many units of PART_149 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1496,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_149",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1496 units of PART_149 in stock.",
+   "seconds": 5.7
+  },
+  {
+   "id": 5,
+   "question": "How many units of PART_078 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1701,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_078",
+      "top_n": 0
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1701 units of PART_078 in stock.",
+   "seconds": 5.6
+  },
+  {
+   "id": 6,
+   "question": "How many units of PART_052 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1758,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_052",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1758 units of PART_052 in stock.",
+   "seconds": 5.6
+  },
+  {
+   "id": 7,
+   "question": "How many units of PART_186 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1027,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_186",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1027 units of PART_186 in stock.",
+   "seconds": 5.6
+  },
+  {
+   "id": 8,
+   "question": "How many units of PART_105 do we currently have in stock?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 1703,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_105",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "We currently have 1703 units of PART_105 in stock.",
+   "seconds": 5.6
+  },
+  {
+   "id": 9,
+   "question": "How many days of supply are left for PART_194?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 37.7,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_194",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "There are currently 37.7 days of supply left for PART_194.",
+   "seconds": 5.7
+  },
+  {
+   "id": 10,
+   "question": "How many days of supply are left for PART_184?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 86.3,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "top_n": "1",
+      "part_id": "PART_184"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "There are 86.3 days of supply left for PART_184.",
+   "seconds": 5.6
+  },
+  {
+   "id": 11,
+   "question": "How many days of supply are left for PART_195?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 34.2,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_195",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "There are 34.2 days of supply left for PART_195.",
+   "seconds": 5.6
+  },
+  {
+   "id": 12,
+   "question": "How many days of supply are left for PART_068?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 25.2,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_068",
+      "top_n": 0
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "There are 25.2 days of supply left for PART_068.",
+   "seconds": 5.6
+  },
+  {
+   "id": 13,
+   "question": "How many days of supply are left for PART_137?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": 37.4,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "top_n": 0,
+      "part_id": "PART_137"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "There are currently 37.4 days of supply left for PART_137.",
+   "seconds": 5.6
+  },
+  {
+   "id": 14,
+   "question": "What is the stockout risk level for PART_049?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": "CRITICAL",
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_049",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The stockout risk level for PART_049 is CRITICAL.",
+   "seconds": 5.5
+  },
+  {
+   "id": 15,
+   "question": "What is the stockout risk level for PART_098?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": "CRITICAL",
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_098",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The stockout risk level for PART_098 is CRITICAL.",
+   "seconds": 5.6
+  },
+  {
+   "id": 16,
+   "question": "What is the stockout risk level for PART_067?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": "WARNING",
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_067",
+      "top_n": "0"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The stockout risk level for PART_067 is WARNING, indicating a moderate risk of stockout based on the current inventory level and demand.",
+   "seconds": 5.9
+  },
+  {
+   "id": 17,
+   "question": "What is the stockout risk level for PART_087?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": "WARNING",
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_087",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The stockout risk level for PART_087 is WARNING, indicating a moderate risk of stockout based on the current inventory level and demand.",
+   "seconds": 5.8
+  },
+  {
+   "id": 18,
+   "question": "What is the stockout risk level for PART_147?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": "OK",
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "PART_147",
+      "top_n": "1"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The stockout risk level for PART_147 is OK, with 73.8 days of inventory on hand and a lead time of 27 days.",
+   "seconds": 5.9
+  },
+  {
+   "id": 19,
+   "question": "Which part currently has the lowest days of supply?",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": [
+    "PART_016"
+   ],
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": null,
+      "top_n": 1
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the tool output, the part with the lowest days of supply is PART_016, which is a Valve from SupplierA, with only 3.3 days of supply left.",
+   "seconds": 6.0
+  },
+  {
+   "id": 20,
+   "question": "List the 3 most at-risk parts right now.",
+   "expected_tool": "get_inventory_status",
+   "expected_answer": [
+    "PART_016",
+    "PART_059",
+    "PART_032"
+   ],
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_inventory_status",
+     "args": {
+      "part_id": "",
+      "top_n": "3"
+     }
+    }
+   ],
+   "first_tool": "get_inventory_status",
+   "tool_correct": true,
+   "answer_correct": false,
+   "final_answer": "These three parts are at risk due to their low supply levels and long lead times.",
+   "seconds": 5.6
+  },
+  {
+   "id": 21,
+   "question": "What is the total 30-day median (p50) demand forecast for PART_187?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 1620,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_187",
+      "confidence": "50"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The final answer is $\\boxed{1620}$ units.",
+   "seconds": 5.7
+  },
+  {
+   "id": 22,
+   "question": "What is the total 30-day median (p50) demand forecast for PART_158?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 1855,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_158",
+      "confidence": "50"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The final answer is $\\boxed{1855}$ units.",
+   "seconds": 5.7
+  },
+  {
+   "id": 23,
+   "question": "What is the total 30-day median (p50) demand forecast for PART_056?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 1801,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_056",
+      "confidence": "50"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "The final answer is $\\boxed{1801}$ units.",
+   "seconds": 5.7
+  },
+  {
+   "id": 24,
+   "question": "How many units of PART_080 should we order to cover a 90% service level over the next 30 days?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 1557,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_080",
+      "p": "90"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the 30-day demand forecast for PART_080, I recommend ordering at least 1557 units to achieve a 90% service level.",
+   "seconds": 5.9
+  },
+  {
+   "id": 25,
+   "question": "How many units of PART_140 should we order to cover a 90% service level over the next 30 days?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 1711,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_140",
+      "p": "90"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the 30-day demand forecast for PART_140, I recommend ordering at least 1711 units to achieve a 90% service level.",
+   "seconds": 5.9
+  },
+  {
+   "id": 26,
+   "question": "How many units of PART_181 should we order to cover a 90% service level over the next 30 days?",
+   "expected_tool": "get_demand_forecast",
+   "expected_answer": 385,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "get_demand_forecast",
+     "args": {
+      "part_id": "PART_181",
+      "p": "90"
+     }
+    }
+   ],
+   "first_tool": "get_demand_forecast",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the 30-day demand forecast for PART_181, I recommend ordering at least 385 units to achieve a 90% service level.",
+   "seconds": 5.9
+  },
+  {
+   "id": 27,
+   "question": "What is SupplierA's on-time delivery rate?",
+   "expected_tool": "search_knowledge_base",
+   "expected_answer": 96.2,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "SupplierA on-time delivery rate"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "SupplierA's on-time delivery rate is 96.2%.",
+   "seconds": 5.3
+  },
+  {
+   "id": 28,
+   "question": "Per our safety stock policy, what Z value should be used for parts with a lead time over 20 days?",
+   "expected_tool": "search_knowledge_base",
+   "expected_answer": 1.96,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "safety stock policy Z value lead time over 20 days"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the safety stock policy, for parts with a lead time over 20 days, the Z value should be 1.96, which corresponds to a 99% service level. This is because longer lead times mean more exposure to demand variability. It is recommended to review safety stock levels quarterly or whenever a supplier lead time changes by more than 5 days. Additionally, parts with a Mean Absolute Percentage Error (MAPE) greater than 20% in the last quarter should have their safety stock multiplied by 1.3 as a buffer.",
+   "seconds": 7.7
+  },
+  {
+   "id": 29,
+   "question": "How many days of production downtime did the Q3 2022 PART_007 stockout cause?",
+   "expected_tool": "search_knowledge_base",
+   "expected_answer": 4,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "PART_007 stockout Q3 2022 downtime"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "Based on the incident report, the PART_007 stockout in Q3 2022 caused 4 days of production downtime across 3 facilities.",
+   "seconds": 6.0
+  },
+  {
+   "id": 30,
+   "question": "What is SupplierD's quality rating from the 2023 audit?",
+   "expected_tool": "search_knowledge_base",
+   "expected_answer": 3.9,
+   "required_calls": null,
+   "tool_calls": [
+    {
+     "name": "search_knowledge_base",
+     "args": {
+      "query": "SupplierD quality rating 2023 audit"
+     }
+    }
+   ],
+   "first_tool": "search_knowledge_base",
+   "tool_correct": true,
+   "answer_correct": true,
+   "final_answer": "SupplierD's quality rating from the 2023 audit is 3.9/5.0, which is flagged for improvement.",
+   "seconds": 5.9
+  }
+ ]
+}

@@ -214,7 +214,7 @@ This project uses **two different forecasting paths**. Understanding the differe
 |---|---|---|
 | **Where it runs** | Trained locally (`forecasting/train.py`), exported to static JSON, served by the web app | Computed on the fly, in `lib/tools/forecast.ts`, when no exported entry exists for a part |
 | **Requires** | PyTorch, pytorch-forecasting (local training only — never installed at runtime on Vercel) | Nothing extra — pure TypeScript |
-| **Accuracy** | High — learns trends, seasonality, part-specific patterns | Moderate — mean + trend extrapolation |
+| **Accuracy** (synthetic data, rolling-origin backtest — see `RESULTS.md`; measured on a short-budget retrain, not on the shipped checkpoint) | MAE 6.86 | MAE 9.52 |
 | **Training needed** | Yes — run `forecasting/train.py` + `forecasting/export_forecasts.py` once | No — always available |
 | **Prediction intervals** | Learned quantiles (p10/p50/p90) from data | Computed from historical standard deviation |
 
@@ -236,7 +236,7 @@ p10 = (p50Daily − 1.65 × std) × 30
 p90 = (p50Daily + 1.65 × std) × 30
 ```
 
-This is a well-known statistical method — an auto-regressive mean model with Gaussian uncertainty. It works well for parts with stable, low-volatility demand. For parts with strong seasonality or sudden spikes, the TFT model is significantly more accurate.
+This is a well-known statistical method — an auto-regressive mean model with Gaussian uncertainty. It works well for parts with stable, low-volatility demand. On this repo's synthetic data, a rolling-origin backtest (`RESULTS.md`) found the TFT's MAE 28% lower than this baseline and 14% lower than AutoARIMA; this has not been tested on real demand data.
 
 ### How the TFT model works
 
@@ -246,7 +246,7 @@ Implemented in `forecasting/model.py`, trained via `forecasting/train.py`. It im
 
 | Input type | Examples | How TFT uses it |
 |---|---|---|
-| Static (never changes per part) | category, supplier, region | Learns "Valve parts from SupplierA behave like X" |
+| Static (never changes per part) | category, supplier, region | Can condition on part attributes (in the bundled synthetic data these carry no demand signal; removing them did not change accuracy — see `RESULTS.md`) |
 | Past (historical observations) | demand, inventory | Learns historical patterns |
 | Future known | day of week, month, quarter | Uses the calendar to anticipate seasonality in advance |
 
@@ -260,7 +260,7 @@ Before forecasting, TFT automatically learns which input features actually matte
 
 Like GPT/BERT, TFT uses attention to look back across the entire 90-day window and identify which historical time steps are most informative for the current prediction. A statistical model can only use recent summary statistics.
 
-The result: TFT is much more accurate for parts with strong seasonality, supplier-specific patterns, or irregular spikes — which is exactly what real supply chain data looks like.
+The result, on the bundled synthetic data: TFT's MAE is 14% lower than AutoARIMA and 28% lower than the statistical baseline (see `RESULTS.md`). The synthetic data has no supplier-specific patterns, and performance on real supply chain data is untested.
 
 ### How to retrain the TFT model and update the web app
 
