@@ -39,10 +39,18 @@ jobs:
           # `cache: pip` alone fails the step outright with "No file ...
           # matched" before anything installs.
           cache-dependency-path: requirements-local.txt
-      - name: Install CPU torch + the deps these tests need
+      # Deliberately NOT `-r requirements-local.txt`. That file is the full
+      # local stack, and installing it here fails: sentence-transformers brings
+      # a `transformers` that pytorch-forecasting's torchmetrics then cannot
+      # import ("Could not import module 'AutoModel'"), so the job died before
+      # running a test. These four are the only packages the four tests touch,
+      # pinned to the same versions requirements-local.txt pins, and verified
+      # in a clean virtualenv: all four exit 0.
+      - name: Install the deps these tests actually need (CPU torch)
         run: |
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements-local.txt
+          pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install pytorch-forecasting==1.7.0 pandas==2.2.2 numpy==1.26.4 \
+                      chromadb==1.5.5
       - name: Export-bug and agent regression tests
         run: |
           set -e
